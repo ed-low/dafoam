@@ -556,6 +556,12 @@ public:
     {
         DASolverPtr_->updateInputFieldUnsteady();
     }
+
+    /// return scaling vector
+    void getStateScalingFactors(double* scalingFactors)
+    {
+        DASolverPtr_->getStateScalingFactors(scalingFactors);
+    }
 };
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

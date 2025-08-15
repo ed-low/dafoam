@@ -420,9 +420,6 @@ public:
     /// assign the inputFieldUnsteady values to the OF field vars
     void updateInputFieldUnsteady();
 
-    /// return scaling vector
-    void getStateScalingFactors(double* scalingFactors);
-
     /// initialize inputFieldUnsteady from the GlobalVar class
     void initInputFieldUnsteady();
 
