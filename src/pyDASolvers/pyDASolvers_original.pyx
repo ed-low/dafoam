@@ -89,8 +89,6 @@ cdef extern from "DASolvers.H" namespace "Foam":
         void updateStateBoundaryConditions()
         void calcPrimalResidualStatistics(char *)
         void setPrimalBoundaryConditions(int)
-        void setPrimalInitialConditions(int)
-        void getInitStateVals(int)
         int runFPAdj(PetscVec, PetscVec)
         int solveAdjointFP(PetscVec, PetscVec)
         void initTensorFlowFuncs(pyComputeInterface, void *, pyJacVecProdInterface, void *, pySetCharInterface, void *)
@@ -109,7 +107,6 @@ cdef extern from "DASolvers.H" namespace "Foam":
         int hasVolCoordInput()
         void meanStatesToStates()
         void updateInputFieldUnsteady()
-        void getStateScalingFactors(double *)
     
 # create python wrappers that call cpp functions
 cdef class pyDASolvers:
@@ -362,12 +359,6 @@ cdef class pyDASolvers:
     def setPrimalBoundaryConditions(self, printInfo):
         self._thisptr.setPrimalBoundaryConditions(printInfo)
     
-    def setPrimalInitialConditions(self, printInfo):
-        self._thisptr.setPrimalInitialConditions(printInfo)
-    
-    def getInitStateVals(self, printInfo):
-        self._thisptr.getInitStateVals(printInfo)
-    
     def readStateVars(self, timeVal, timeLevel):
         self._thisptr.readStateVars(timeVal, timeLevel)
     
@@ -467,8 +458,3 @@ cdef class pyDASolvers:
     
     def updateInputFieldUnsteady(self):
         self._thisptr.updateInputFieldUnsteady()
-
-    def getStateScalingFactors(self, np.ndarray[double, ndim=1, mode="c"] scalingFactors):
-        assert len(scalingFactors) == self.getNLocalAdjointStates(), "invalid input array size!"
-        cdef double* scaling_data = <double*>scalingFactors.data
-        self._thisptr.getStateScalingFactors(scaling_data)

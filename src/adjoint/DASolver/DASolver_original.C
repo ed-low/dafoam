@@ -58,15 +58,11 @@ DASolver::DASolver(
     // initialize fvMesh and Time object pointer
 #include "setArgs.H"
 #include "setRootCasePython.H"
-
-    Info << "Initializing mesh and runtime for DASolver" << endl;
 #include "createTimePython.H"
 #include "createMeshPython.H"
+    Info << "Initializing mesh and runtime for DASolver" << endl;
 
     daOptionPtr_.reset(new DAOption(meshPtr_(), pyOptions_));
-
-    // force to use meshWaveFrozen for wallDist->method, regardless what is actually set in fvSchemes
-    this->forceMeshWaveFrozen();
 
     // if the dynamic mesh is used, set moving to true here
     dictionary allOptions = daOptionPtr_->getAllOptions();
@@ -96,9 +92,6 @@ DASolver::DASolver(
     primalMinIters_ = daOptionPtr_->getOption<label>("primalMinIters");
     printInterval_ = daOptionPtr_->getOption<label>("printInterval");
     printIntervalUnsteady_ = daOptionPtr_->getOption<label>("printIntervalUnsteady");
-    primalFuncStdTol_ = daOptionPtr_->getSubDictOption<scalar>("primalFuncStdTol", "tol");
-    primalFuncStdName_ = daOptionPtr_->getSubDictOption<word>("primalFuncStdTol", "funcName");
-    primalFuncStdSteps_ = daOptionPtr_->getSubDictOption<label>("primalFuncStdTol", "nSteps");
 
     // if inputInto has unsteadyField, we need to initial GlobalVar::inputFieldUnsteady here
     this->initInputFieldUnsteady();
@@ -174,27 +167,13 @@ label DASolver::loop(Time& runTime)
         funcObj.execute();
     }
 
-    // if we want to use the function std as the convergence criteria, we need to compute the std
-    if (primalFuncStdTol_ > 0)
-    {
-        this->calcFuncStd();
-    }
-
     // check exit condition, we need to satisfy both the residual and function std condition
-    if ((daGlobalVarPtr_->primalMaxRes < primalMinResTol_ || funcStd_ < primalFuncStdTol_) && runTime.timeIndex() > primalMinIters_)
+    if (daGlobalVarPtr_->primalMaxRes < primalMinResTol_ && runTime.timeIndex() > primalMinIters_)
     {
         Info << "Time = " << t << endl;
 
-        if (daGlobalVarPtr_->primalMaxRes < primalMinResTol_)
-        {
-            Info << "Minimal residual " << daGlobalVarPtr_->primalMaxRes << " satisfied the prescribed tolerance " << primalMinResTol_ << endl
-                 << endl;
-        }
-        else if (funcStd_ < primalFuncStdTol_)
-        {
-            Info << "Function " << primalFuncStdName_ << " std " << funcStd_ << " satisfied the prescribed tolerance " << primalFuncStdTol_ << endl
-                 << endl;
-        }
+        Info << "Minimal residual " << daGlobalVarPtr_->primalMaxRes << " satisfied the prescribed tolerance " << primalMinResTol_ << endl
+             << endl;
 
         this->calcAllFunctions(1);
         runTime.writeNow();
@@ -220,38 +199,6 @@ label DASolver::loop(Time& runTime)
         printToScreen_ = this->isPrintTime(runTime, printInterval_);
         return 1;
     }
-}
-
-void DASolver::calcFuncStd()
-{
-    /*
-    Description:
-        Calculate the function std.
-    */
-    label timeIndex = runTimePtr_->timeIndex();
-    label listIndex = timeIndex - 1;
-    label funcIdx = this->getFunctionListIndex(primalFuncStdName_);
-    label startIdx = max(0, listIndex - primalFuncStdSteps_ + 1);
-
-    scalar mean = 0.0;
-    label nActualSteps = listIndex - startIdx + 1;
-    for (label i = listIndex; i >= startIdx; i--)
-    {
-        mean += functionTimeSteps_[funcIdx][i];
-    }
-    mean /= nActualSteps;
-
-    funcStd_ = 0.0;
-    for (label i = listIndex; i >= startIdx; i--)
-    {
-        funcStd_ += (functionTimeSteps_[funcIdx][i] - mean) * (functionTimeSteps_[funcIdx][i] - mean);
-    }
-    funcStd_ /= nActualSteps;
-    funcStd_ = sqrt(funcStd_) / mag(mean);
-    //Info << "funcTS " << functionTimeSteps_[funcIdx] << endl;
-    //Info << "mean " << mean << endl;
-    //Info << "nActualSteps " << nActualSteps << endl;
-    //Info << "funcStd " << funcStd_ << endl;
 }
 
 void DASolver::calcAllFunctions(label print)
@@ -687,8 +634,6 @@ void DASolver::calcPrimalResidualStatistics(
 
     this->calcResiduals();
 
-    scalar totalResNorm2 = 0.0;
-
     forAll(stateInfo_["volVectorStates"], idxI)
     {
         const word stateName = stateInfo_["volVectorStates"][idxI];
@@ -724,7 +669,6 @@ void DASolver::calcPrimalResidualStatistics(
         vecResMean = vecResMean / Pstream::nProcs();
         reduce(vecResNorm2, sumOp<vector>());
         reduce(vecResMax, maxOp<vector>());
-        totalResNorm2 += vecResNorm2.x() + vecResNorm2.y() + vecResNorm2.z();
         vecResNorm2.x() = pow(vecResNorm2.x(), 0.5);
         vecResNorm2.y() = pow(vecResNorm2.y(), 0.5);
         vecResNorm2.z() = pow(vecResNorm2.z(), 0.5);
@@ -760,7 +704,6 @@ void DASolver::calcPrimalResidualStatistics(
         scalarResMean = scalarResMean / Pstream::nProcs();
         reduce(scalarResNorm2, sumOp<scalar>());
         reduce(scalarResMax, maxOp<scalar>());
-        totalResNorm2 += scalarResNorm2;
         scalarResNorm2 = pow(scalarResNorm2, 0.5);
         if (mode == "print")
         {
@@ -794,7 +737,6 @@ void DASolver::calcPrimalResidualStatistics(
         scalarResMean = scalarResMean / Pstream::nProcs();
         reduce(scalarResNorm2, sumOp<scalar>());
         reduce(scalarResMax, maxOp<scalar>());
-        totalResNorm2 += scalarResNorm2;
         scalarResNorm2 = pow(scalarResNorm2, 0.5);
         if (mode == "print")
         {
@@ -839,7 +781,6 @@ void DASolver::calcPrimalResidualStatistics(
         phiResMean = phiResMean / Pstream::nProcs();
         reduce(phiResNorm2, sumOp<scalar>());
         reduce(phiResMax, maxOp<scalar>());
-        totalResNorm2 += phiResNorm2;
         phiResNorm2 = pow(phiResNorm2, 0.5);
         if (mode == "print")
         {
@@ -852,12 +793,6 @@ void DASolver::calcPrimalResidualStatistics(
         {
             stateRes.write();
         }
-    }
-
-    totalResNorm2 = pow(totalResNorm2, 0.5);
-    if (mode == "print")
-    {
-        Info << "Total Residual Norm2: " << totalResNorm2 << endl;
     }
 
     Info << " " << endl;
@@ -2645,14 +2580,8 @@ label DASolver::checkPrimalFailure()
         - Check whether the regression model computation fails
     */
 
-    // if the funcStd mode is used for convergence, we always return 0 without checking primalMinResTolDiff
-    scalar stdTol = daOptionPtr_->getSubDictOption<scalar>("primalFuncStdTol", "tol");
-    if (stdTol > 0)
-    {
-        return 0;
-    }
-
     // when checking the tolerance, we relax the criteria by tolMax
+
     if (regModelFail_ != 0)
     {
         Info << "Regression model computation has invalid values. Primal solution failed!" << endl;
@@ -3340,113 +3269,6 @@ void DASolver::readStateVars(
 
     // update the BC and intermediate variables. This is important, e.g., for turbulent cases
     this->updateStateBoundaryConditions();
-
-    wordList additionalOldTime;
-    daOptionPtr_->getAllOptions().subDict("unsteadyAdjoint").readEntry<wordList>("additionalOldTime", additionalOldTime);
-    forAll(additionalOldTime, idxI)
-    {
-        word oldTimeStateName = additionalOldTime[idxI];
-        if (oldTimeStateName == "None")
-        {
-            continue;
-        }
-        else if (meshPtr_->thisDb().foundObject<volScalarField>(oldTimeStateName))
-        {
-            volScalarField& state = meshPtr_->thisDb().lookupObjectRef<volScalarField>(oldTimeStateName);
-
-            volScalarField stateRead(
-                IOobject(
-                    oldTimeStateName,
-                    timeName,
-                    mesh,
-                    IOobject::MUST_READ,
-                    IOobject::NO_WRITE),
-                mesh);
-
-            if (oldTimeLevel == 0)
-            {
-                // NOTE: do nothing if oldTimeLevel = 0. We assign only oldTime
-                continue;
-            }
-            else if (oldTimeLevel == 1)
-            {
-                state.oldTime() == stateRead;
-            }
-            else if (oldTimeLevel == 2)
-            {
-                if (timeVal < 0)
-                {
-                    volScalarField state0Read(
-                        IOobject(
-                            oldTimeStateName + "_0",
-                            timeName,
-                            mesh,
-                            IOobject::READ_IF_PRESENT,
-                            IOobject::NO_WRITE),
-                        stateRead);
-                    state.oldTime().oldTime() == state0Read;
-                }
-                else
-                {
-                    state.oldTime().oldTime() == stateRead;
-                }
-            }
-            else
-            {
-                FatalErrorIn("") << "oldTimeLevel can only be 0, 1, and 2!" << abort(FatalError);
-            }
-        }
-        else if (meshPtr_->thisDb().foundObject<volVectorField>(oldTimeStateName))
-        {
-            volVectorField& state = meshPtr_->thisDb().lookupObjectRef<volVectorField>(oldTimeStateName);
-
-            volVectorField stateRead(
-                IOobject(
-                    oldTimeStateName,
-                    timeName,
-                    mesh,
-                    IOobject::MUST_READ,
-                    IOobject::NO_WRITE),
-                mesh);
-
-            if (oldTimeLevel == 0)
-            {
-                // NOTE: do nothing if oldTimeLevel = 0. We assign only oldTime
-                continue;
-            }
-            else if (oldTimeLevel == 1)
-            {
-                state.oldTime() == stateRead;
-            }
-            else if (oldTimeLevel == 2)
-            {
-                if (timeVal < 0)
-                {
-                    volVectorField state0Read(
-                        IOobject(
-                            oldTimeStateName + "_0",
-                            timeName,
-                            mesh,
-                            IOobject::READ_IF_PRESENT,
-                            IOobject::NO_WRITE),
-                        stateRead);
-                    state.oldTime().oldTime() == state0Read;
-                }
-                else
-                {
-                    state.oldTime().oldTime() == stateRead;
-                }
-            }
-            else
-            {
-                FatalErrorIn("") << "oldTimeLevel can only be 0, 1, and 2!" << abort(FatalError);
-            }
-        }
-        else
-        {
-            FatalErrorIn("") << "The prescribed additionalOldTime not found in the Db" << abort(FatalError);
-        }
-    }
 }
 
 void DASolver::writeFailedMesh()
@@ -3485,27 +3307,6 @@ void DASolver::setPrimalBoundaryConditions(const label printInfo)
     }
 }
 
-void DASolver::setPrimalInitialConditions(const label printInfo)
-{
-    /*
-    Description:
-        Update the state initial conditions based on the ones defined in primalBC
-    */
-
-    // first check if we need to change the ini conditions based on
-    // the primalBC dict in DAOption. NOTE: this will overwrite whatever
-    // ini conditions defined in the "0" folder
-    dictionary iniDict = daOptionPtr_->getAllOptions().subDict("primalInitCondition");
-    if (iniDict.toc().size() != 0)
-    {
-        if (printInfo)
-        {
-            Info << "Setting up primal initial conditions based on pyOptions: " << endl;
-        }
-        daFieldPtr_->setPrimalInitialConditions(printInfo);
-    }
-}
-
 label DASolver::runFPAdj(
     Vec dFdW,
     Vec psi)
@@ -3538,17 +3339,12 @@ label DASolver::solveAdjointFP(
     return 1;
 }
 
-void DASolver::getInitStateVals(const label printInfo)
+void DASolver::getInitStateVals(HashTable<scalar>& initState)
 {
     /*
     Description:
         Get the initial state values from the field's average value
     */
-
-    if (stateInfo_.size() < 1)
-    {
-        return;
-    }
 
     forAll(stateInfo_["volVectorStates"], idxI)
     {
@@ -3568,7 +3364,7 @@ void DASolver::getInitStateVals(const label printInfo)
 
         for (label i = 0; i < 3; i++)
         {
-            initStateVals_.set(stateName + Foam::name(i), avgState[i]);
+            initState.set(stateName + Foam::name(i), avgState[i]);
         }
     }
 
@@ -3584,7 +3380,7 @@ void DASolver::getInitStateVals(const label printInfo)
         avgState /= daIndexPtr_->nGlobalCells;
         reduce(avgState, sumOp<scalar>());
 
-        initStateVals_.set(stateName, avgState);
+        initState.set(stateName, avgState);
     }
 
     forAll(stateInfo_["modelStates"], idxI)
@@ -3599,7 +3395,7 @@ void DASolver::getInitStateVals(const label printInfo)
         avgState /= daIndexPtr_->nGlobalCells;
         reduce(avgState, sumOp<scalar>());
 
-        initStateVals_.set(stateName, avgState);
+        initState.set(stateName, avgState);
     }
 
     forAll(stateInfo_["surfaceScalarStates"], idxI)
@@ -3607,13 +3403,10 @@ void DASolver::getInitStateVals(const label printInfo)
         const word stateName = stateInfo_["surfaceScalarStates"][idxI];
         // const surfaceScalarField& state = meshPtr_->thisDb().lookupObject<surfaceScalarField>(stateName);
         // we can reset the flux to zeros
-        initStateVals_.set(stateName, 0.0);
+        initState.set(stateName, 0.0);
     }
 
-    if (printInfo)
-    {
-        Info << "initState: " << initStateVals_ << endl;
-    }
+    Info << "initState: " << initState << endl;
 }
 
 void DASolver::resetStateVals()
@@ -4333,282 +4126,6 @@ void DASolver::updateInputFieldUnsteady()
         }
     }
 }
-
-void DASolver::forceMeshWaveFrozen()
-{
-    /*
-    Description:
-        replace meshWave with meshWaveFrozen for wallDist->method, regardless what is actually set in fvSchemes
-    */
-
-    label forceMeshWaveFrozen = daOptionPtr_->getAllOptions().getLabel("forceMeshWaveFrozen");
-
-    if (!forceMeshWaveFrozen)
-    {
-        return;
-    }
-
-    // Get fvSchemes dictionary from the object registry
-    IOdictionary& fvSchemes =
-        const_cast<IOdictionary&>(
-            meshPtr_->lookupObject<IOdictionary>("fvSchemes"));
-
-    // Prepare a working copy of the wallDist subdict (or a fresh one)
-    dictionary wallDistDict;
-    if (fvSchemes.found("wallDist"))
-    {
-        wallDistDict = fvSchemes.subDict("wallDist");
-    }
-
-    // Read current method (default empty)
-    word method("meshWave");
-    if (wallDistDict.found("method"))
-    {
-        method = word(wallDistDict.lookup("method"));
-    }
-
-    // If user asked for meshWave, silently upgrade to meshWaveFrozen
-    if (method == "meshWave")
-    {
-        Info << "Replacing wallDist.method meshWave -> meshWaveFrozen" << nl;
-        wallDistDict.set("method", word("meshWaveFrozen"));
-        // write back to fvSchemes in-memory dictionary
-        if (fvSchemes.found("wallDist"))
-        {
-            fvSchemes.set("wallDist", wallDistDict);
-        }
-        else
-        {
-            fvSchemes.add("wallDist", wallDistDict);
-        }
-    }
-    // else: leave meshWaveFrozen or any other method untouched
-}
-
-
-
-void DASolver::getStateScalingFactors(double* scalingFactors)
-{
-    // Get number of local adjoint states
-    label nStates = daIndexPtr_->nLocalAdjointStates;
-
-    // Initialize all scaling factors to 1
-    for (label idx = 0; idx < nStates; ++idx)
-    {
-        scalingFactors[idx] = 1.0;
-    }
-
-    // Get normalization options dictionary
-    dictionary normStateDict = daOptionPtr_->getAllOptions().subDict("normalizeStates");
-
-    // --- volVectorStates ---
-    forAll(stateInfo_["volVectorStates"], idxI)
-    {
-        const word stateName = stateInfo_["volVectorStates"][idxI];
-        if (normStateDict.found(stateName))
-        {
-            scalar scalingFactor = normStateDict.getScalar(stateName);
-
-            forAll(meshPtr_->cells(), cellI)
-            {
-                for (label i = 0; i < 3; i++)
-                {
-                    label localIdx = daIndexPtr_->getLocalAdjointStateIndex(stateName, cellI, i);
-
-#if defined(CODI_ADF) || defined(CODI_ADR)
-                    double val = scalingFactor.getValue();
-#else
-                    double val = scalingFactor;
-#endif
-                    scalingFactors[localIdx] = val;
-                }
-            }
-        }
-    }
-
-    // --- volScalarStates ---
-    forAll(stateInfo_["volScalarStates"], idxI)
-    {
-        const word stateName = stateInfo_["volScalarStates"][idxI];
-        if (normStateDict.found(stateName))
-        {
-            scalar scalingFactor = normStateDict.getScalar(stateName);
-
-            forAll(meshPtr_->cells(), cellI)
-            {
-                label localIdx = daIndexPtr_->getLocalAdjointStateIndex(stateName, cellI);
-
-#if defined(CODI_ADF) || defined(CODI_ADR)
-                double val = scalingFactor.getValue();
-#else
-                double val = scalingFactor;
-#endif
-                scalingFactors[localIdx] = val;
-            }
-        }
-    }
-
-    // --- modelStates ---
-    forAll(stateInfo_["modelStates"], idxI)
-    {
-        const word stateName = stateInfo_["modelStates"][idxI];
-        if (normStateDict.found(stateName))
-        {
-            scalar scalingFactor = normStateDict.getScalar(stateName);
-
-            forAll(meshPtr_->cells(), cellI)
-            {
-                label localIdx = daIndexPtr_->getLocalAdjointStateIndex(stateName, cellI);
-
-#if defined(CODI_ADF) || defined(CODI_ADR)
-                double val = scalingFactor.getValue();
-#else
-                double val = scalingFactor;
-#endif
-                scalingFactors[localIdx] = val;
-            }
-        }
-    }
-
-    // --- surfaceScalarStates ---
-    forAll(stateInfo_["surfaceScalarStates"], idxI)
-    {
-        const word stateName = stateInfo_["surfaceScalarStates"][idxI];
-        if (normStateDict.found(stateName))
-        {
-            scalar scalingFactor = normStateDict.getScalar(stateName);
-
-            forAll(meshPtr_->faces(), faceI)
-            {
-                label localIdx = daIndexPtr_->getLocalAdjointStateIndex(stateName, faceI);
-
-#if defined(CODI_ADF) || defined(CODI_ADR)
-                double val = scalingFactor.getValue();
-#else
-                double val = scalingFactor;
-#endif
-                double meshVal = 1.0;
-                if (faceI < daIndexPtr_->nLocalInternalFaces)
-                {
-                    scalar meshSf = meshPtr_->magSf()[faceI];
-#if defined(CODI_ADF) || defined(CODI_ADR)
-                    meshVal = meshSf.getValue();
-#else
-                    meshVal = meshSf;
-#endif
-                }
-                else
-                {
-                    label relIdx = faceI - daIndexPtr_->nLocalInternalFaces;
-                    label patchIdx = daIndexPtr_->bFacePatchI[relIdx];
-                    label faceIdx = daIndexPtr_->bFaceFaceI[relIdx];
-                    scalar meshSf = meshPtr_->magSf().boundaryField()[patchIdx][faceIdx];
-#if defined(CODI_ADF) || defined(CODI_ADR)
-                    meshVal = meshSf.getValue();
-#else
-                    meshVal = meshSf;
-#endif
-                }
-
-                scalingFactors[localIdx] = val * meshVal;
-            }
-        }
-    }
-}
-
-// void DASolver::getStateScalingFactors(double* scalingFactors)
-// {
-//     // Initialize all scaling factors to 1
-//     label nStates = daIndexPtr_->nLocalAdjointStates;
-//     for (label idx = 0; idx < nStates; ++idx)
-//     {
-//         scalingFactors[idx] = 1.0;
-//     }
-
-//     dictionary normStateDict = daOptionPtr_->getAllOptions().subDict("normalizeStates");
-
-//     // --- volVectorStates ---
-//     forAll(stateInfo_["volVectorStates"], idxI)
-//     {
-//         const word stateName = stateInfo_["volVectorStates"][idxI];
-//         if (normStateDict.found(stateName))
-//         {
-//             scalar scalingFactor = normStateDict.getScalar(stateName);
-//             forAll(meshPtr_->cells(), cellI)
-//                 for (label i = 0; i < 3; i++)
-//                 {
-//                     label localIdx = daIndexPtr_->getLocalAdjointStateIndex(stateName, cellI, i);
-//                     scalingFactors[localIdx] = scalingFactor.getValue();
-//                 }
-//         }
-//     }
-
-//     // --- volScalarStates ---
-//     forAll(stateInfo_["volScalarStates"], idxI)
-//     {
-//         const word stateName = stateInfo_["volScalarStates"][idxI];
-//         if (normStateDict.found(stateName))
-//         {
-//             scalar scalingFactor = normStateDict.getScalar(stateName);
-//             forAll(meshPtr_->cells(), cellI)
-//             {
-//                 label localIdx = daIndexPtr_->getLocalAdjointStateIndex(stateName, cellI);
-//                 scalingFactors[localIdx] = scalingFactor.getValue();
-//             }
-//         }
-//     }
-
-//     // --- modelStates ---
-//     forAll(stateInfo_["modelStates"], idxI)
-//     {
-//         const word stateName = stateInfo_["modelStates"][idxI];
-//         if (normStateDict.found(stateName))
-//         {
-//             scalar scalingFactor = normStateDict.getScalar(stateName);
-//             forAll(meshPtr_->cells(), cellI)
-//             {
-//                 label localIdx = daIndexPtr_->getLocalAdjointStateIndex(stateName, cellI);
-//                 scalingFactors[localIdx] = scalingFactor.getValue();
-//             }
-//         }
-//     }
-
-//     // --- surfaceScalarStates ---
-//     forAll(stateInfo_["surfaceScalarStates"], idxI)
-//     {
-//         const word stateName = stateInfo_["surfaceScalarStates"][idxI];
-//         if (normStateDict.found(stateName))
-//         {
-//             scalar scalingFactor = normStateDict.getScalar(stateName);
-//             forAll(meshPtr_->faces(), faceI)
-//             {
-//                 label localIdx = daIndexPtr_->getLocalAdjointStateIndex(stateName, faceI);
-
-//                 if (faceI < daIndexPtr_->nLocalInternalFaces)
-//                 {
-//                     scalar meshSf = meshPtr_->magSf()[faceI];
-//                     scalingFactors[localIdx] = scalingFactor.getValue() * meshSf.getValue();
-//                 }
-//                 else
-//                 {
-//                     label relIdx = faceI - daIndexPtr_->nLocalInternalFaces;
-//                     label patchIdx = daIndexPtr_->bFacePatchI[relIdx];
-//                     label faceIdx = daIndexPtr_->bFaceFaceI[relIdx];
-//                     scalar meshSf = meshPtr_->magSf().boundaryField()[patchIdx][faceIdx];
-//                     scalingFactors[localIdx] = scalingFactor.getValue() * meshSf.getValue();
-//                 }
-//             }
-//         }
-//     }
-// }
-
-
-
-
-
-
-
-
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

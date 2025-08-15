@@ -146,18 +146,6 @@ protected:
     /// primal residual tolerance
     scalar primalMinResTol_ = 0.0;
 
-    /// the function std tolerance
-    scalar primalFuncStdTol_ = -1.0;
-
-    /// the function name for the std tolerance
-    word primalFuncStdName_ = "CD";
-
-    /// the number of last steps to compute std
-    label primalFuncStdSteps_ = 100;
-
-    /// the std of a function, default to be -1
-    scalar funcStd_ = 1e16;
-
     /// whether to print primal information to the screen
     label printToScreen_ = 0;
 
@@ -429,14 +417,8 @@ public:
     /// return whether to loop the primal solution, similar to runTime::loop() except we don't do file IO
     label loop(Time& runTime);
 
-    /// calculate the function std
-    void calcFuncStd();
-
     /// assign the inputFieldUnsteady values to the OF field vars
     void updateInputFieldUnsteady();
-
-    /// return scaling vector
-    void getStateScalingFactors(double* scalingFactors);
 
     /// initialize inputFieldUnsteady from the GlobalVar class
     void initInputFieldUnsteady();
@@ -548,9 +530,6 @@ public:
                 return idxI;
             }
         }
-        FatalErrorIn("getFunctionListIndex") << "functionName " << functionName << " not found!"
-                                             << abort(FatalError);
-        return -1;
     }
 
     /// check the mesh quality and return meshOK
@@ -685,9 +664,6 @@ public:
     /// update the primal state boundary condition based on the primalBC dict
     void setPrimalBoundaryConditions(const label printInfo = 1);
 
-    /// set the primal state init condition based on the primalBC dict
-    void setPrimalInitialConditions(const label printInfo = 1);
-
     /// write the failed mesh to disk
     void writeFailedMesh();
 
@@ -760,7 +736,7 @@ public:
     label validateStates();
 
     /// calculate the initial value for validate states
-    void getInitStateVals(const label printInfo);
+    void getInitStateVals(HashTable<scalar>& initState);
 
     /// reset the states to its initial values this usually happens when we have nan in states
     void resetStateVals();
@@ -793,9 +769,6 @@ public:
         const word function,
         const double writeTime,
         const double* psi);
-
-    /// force to use meshWaveFrozen for wallDist->method, regardless what is actually set in fvSchemes
-    void forceMeshWaveFrozen();
 };
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
