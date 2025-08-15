@@ -533,3 +533,46 @@ cdef class pyDASolvers:
 
         return py_adjoint_idx, py_point_idx, py_cell_idx, py_face_idx
 
+
+    def getStateScalingFactors(self, np.ndarray[double, ndim=1, mode="c"] scalingFactors):
+        assert len(scalingFactors) == self.getNLocalAdjointStates(), "invalid input array size!"
+        cdef double* scaling_data = <double*>scalingFactors.data
+        self._thisptr.getStateScalingFactors(scaling_data)
+
+    def getStateWeights(self, np.ndarray[double, ndim=1, mode="c"] stateWeights):
+        assert len(stateWeights) == self.getNLocalAdjointStates(), "invalid input array size!"
+        cdef double* weight_data = <double*>stateWeights.data
+        self._thisptr.getStateWeights(weight_data)
+
+    def getStateVariableMap(self, bint includeComponentSuffix=False):
+        cdef List[word] stateNames
+        cdef List[int] stateVarIndex
+
+        self._thisptr.getStateVariableMap(stateNames, stateVarIndex, includeComponentSuffix)
+
+        py_names = [stateNames[i].c_str().decode('utf-8') for i in range(stateNames.size())]  # convert word -> str
+        py_idx = np.array([stateVarIndex[i] for i in range(stateVarIndex.size())], dtype=np.int32)
+
+        return py_names, py_idx
+
+    def getCellCentroids(self, np.ndarray[double, ndim=1, mode="c"] centroids):
+        assert len(centroids) == 3 * self.getNLocalCells(), "invalid input array size!"
+        cdef double* centroid_data = <double*>centroids.data
+        self._thisptr.getCellCentroids(centroid_data)
+
+    def getGlobalIndexLists(self):
+        cdef List[int] adjStateGlobalIdx
+        cdef List[int] pointGlobalIdx
+        cdef List[int] cellGlobalIdx
+        cdef List[int] faceGlobalIdx
+
+        self._thisptr.getGlobalIndexLists(adjStateGlobalIdx, pointGlobalIdx, cellGlobalIdx, faceGlobalIdx)
+
+        py_adjoint_idx = np.array([adjStateGlobalIdx[i] for i in range(adjStateGlobalIdx.size())], dtype=np.int32)
+        py_point_idx   = np.array([pointGlobalIdx[i] for i in range(pointGlobalIdx.size())], dtype=np.int32)
+        py_cell_idx    = np.array([cellGlobalIdx[i] for i in range(cellGlobalIdx.size())], dtype=np.int32)
+        py_face_idx    = np.array([faceGlobalIdx[i] for i in range(faceGlobalIdx.size())], dtype=np.int32)
+
+        return py_adjoint_idx, py_point_idx, py_cell_idx, py_face_idx
+
+
