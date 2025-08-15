@@ -2121,6 +2121,18 @@ class PYDAFOAM(object):
 
         return residuals
 
+    def getStateScalingFactors(self):
+        """
+        Return the scale factors array owns by this processor
+        """
+        nLocalStateSize = self.solver.getNLocalAdjointStates()
+        state_scaling_factors = np.zeros(nLocalStateSize, self.dtype)
+
+        self.solver.getStateScalingFactors(state_scaling_factors)
+
+        return state_scaling_factors
+
+
     def arrayVal2Vec(self, array1, vec):
         """
         Assign the values from array1 to vec
