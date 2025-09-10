@@ -110,6 +110,7 @@ cdef extern from "DASolvers.H" namespace "Foam":
         void meanStatesToStates()
         void updateInputFieldUnsteady()
         void getStateScalingFactors(double *)
+        void getStateWeights(double *)
     
 # create python wrappers that call cpp functions
 cdef class pyDASolvers:
@@ -472,3 +473,8 @@ cdef class pyDASolvers:
         assert len(scalingFactors) == self.getNLocalAdjointStates(), "invalid input array size!"
         cdef double* scaling_data = <double*>scalingFactors.data
         self._thisptr.getStateScalingFactors(scaling_data)
+
+    def getStateWeights(self, np.ndarray[double, ndim=1, mode="c"] stateWeights):
+        assert len(stateWeights) == self.getNLocalAdjointStates(), "invalid input array size!"
+        cdef double* weight_data = <double*>stateWeights.data
+        self._thisptr.getStateWeights(weight_data)

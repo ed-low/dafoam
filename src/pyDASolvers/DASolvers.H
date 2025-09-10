@@ -572,6 +572,12 @@ public:
     {
         DASolverPtr_->getStateScalingFactors(scalingFactors);
     }
+
+    /// return weight vector
+    void getStateWeights(double* stateWeights)
+    {
+        DASolverPtr_->getStateWeights(stateWeights);
+    }
 };
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

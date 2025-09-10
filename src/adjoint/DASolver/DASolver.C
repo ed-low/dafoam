@@ -4516,98 +4516,110 @@ void DASolver::getStateScalingFactors(double* scalingFactors)
     }
 }
 
-// void DASolver::getStateScalingFactors(double* scalingFactors)
-// {
-//     // Initialize all scaling factors to 1
-//     label nStates = daIndexPtr_->nLocalAdjointStates;
-//     for (label idx = 0; idx < nStates; ++idx)
-//     {
-//         scalingFactors[idx] = 1.0;
-//     }
-
-//     dictionary normStateDict = daOptionPtr_->getAllOptions().subDict("normalizeStates");
-
-//     // --- volVectorStates ---
-//     forAll(stateInfo_["volVectorStates"], idxI)
-//     {
-//         const word stateName = stateInfo_["volVectorStates"][idxI];
-//         if (normStateDict.found(stateName))
-//         {
-//             scalar scalingFactor = normStateDict.getScalar(stateName);
-//             forAll(meshPtr_->cells(), cellI)
-//                 for (label i = 0; i < 3; i++)
-//                 {
-//                     label localIdx = daIndexPtr_->getLocalAdjointStateIndex(stateName, cellI, i);
-//                     scalingFactors[localIdx] = scalingFactor.getValue();
-//                 }
-//         }
-//     }
-
-//     // --- volScalarStates ---
-//     forAll(stateInfo_["volScalarStates"], idxI)
-//     {
-//         const word stateName = stateInfo_["volScalarStates"][idxI];
-//         if (normStateDict.found(stateName))
-//         {
-//             scalar scalingFactor = normStateDict.getScalar(stateName);
-//             forAll(meshPtr_->cells(), cellI)
-//             {
-//                 label localIdx = daIndexPtr_->getLocalAdjointStateIndex(stateName, cellI);
-//                 scalingFactors[localIdx] = scalingFactor.getValue();
-//             }
-//         }
-//     }
-
-//     // --- modelStates ---
-//     forAll(stateInfo_["modelStates"], idxI)
-//     {
-//         const word stateName = stateInfo_["modelStates"][idxI];
-//         if (normStateDict.found(stateName))
-//         {
-//             scalar scalingFactor = normStateDict.getScalar(stateName);
-//             forAll(meshPtr_->cells(), cellI)
-//             {
-//                 label localIdx = daIndexPtr_->getLocalAdjointStateIndex(stateName, cellI);
-//                 scalingFactors[localIdx] = scalingFactor.getValue();
-//             }
-//         }
-//     }
-
-//     // --- surfaceScalarStates ---
-//     forAll(stateInfo_["surfaceScalarStates"], idxI)
-//     {
-//         const word stateName = stateInfo_["surfaceScalarStates"][idxI];
-//         if (normStateDict.found(stateName))
-//         {
-//             scalar scalingFactor = normStateDict.getScalar(stateName);
-//             forAll(meshPtr_->faces(), faceI)
-//             {
-//                 label localIdx = daIndexPtr_->getLocalAdjointStateIndex(stateName, faceI);
-
-//                 if (faceI < daIndexPtr_->nLocalInternalFaces)
-//                 {
-//                     scalar meshSf = meshPtr_->magSf()[faceI];
-//                     scalingFactors[localIdx] = scalingFactor.getValue() * meshSf.getValue();
-//                 }
-//                 else
-//                 {
-//                     label relIdx = faceI - daIndexPtr_->nLocalInternalFaces;
-//                     label patchIdx = daIndexPtr_->bFacePatchI[relIdx];
-//                     label faceIdx = daIndexPtr_->bFaceFaceI[relIdx];
-//                     scalar meshSf = meshPtr_->magSf().boundaryField()[patchIdx][faceIdx];
-//                     scalingFactors[localIdx] = scalingFactor.getValue() * meshSf.getValue();
-//                 }
-//             }
-//         }
-//     }
-// }
 
 
+void DASolver::getStateWeights(double* stateWeights)
+{
+    // Get number of local adjoint states
+    label nStates = daIndexPtr_->nLocalAdjointStates;
 
+    // Initialize all scaling factors to 1
+    for (label idx = 0; idx < nStates; ++idx)
+    {
+        stateWeights[idx] = 1.0;
+    }
 
+    // --- volVectorStates ---
+    forAll(stateInfo_["volVectorStates"], idxI)
+    {
+        const word stateName = stateInfo_["volVectorStates"][idxI];
+        forAll(meshPtr_->cells(), cellI)
+        {
+            for (label i = 0; i < 3; i++)
+            {
+                label localIdx = daIndexPtr_->getLocalAdjointStateIndex(stateName, cellI, i);
+                scalar meshV = meshPtr_->V()[cellI];
 
+#if defined(CODI_ADF) || defined(CODI_ADR)
+                double val = meshV.getValue();
+#else
+                double val = meshV;
+#endif
+                stateWeights[localIdx] = val;
+            }
+        }
+    }
 
+    // --- volScalarStates ---
+    forAll(stateInfo_["volScalarStates"], idxI)
+    {
+        const word stateName = stateInfo_["volScalarStates"][idxI];
+        forAll(meshPtr_->cells(), cellI)
+        {
+            label localIdx = daIndexPtr_->getLocalAdjointStateIndex(stateName, cellI);
+            scalar meshV = meshPtr_->V()[cellI];
 
+#if defined(CODI_ADF) || defined(CODI_ADR)
+            double val = meshV.getValue();
+#else
+            double val = meshV;
+#endif
+            stateWeights[localIdx] = val;
+        }
+    }
+
+    // --- modelStates ---
+    forAll(stateInfo_["modelStates"], idxI)
+    {
+        const word stateName = stateInfo_["modelStates"][idxI];
+        forAll(meshPtr_->cells(), cellI)
+        {
+            label localIdx = daIndexPtr_->getLocalAdjointStateIndex(stateName, cellI);
+            scalar meshV = meshPtr_->V()[cellI];
+
+#if defined(CODI_ADF) || defined(CODI_ADR)
+            double val = meshV.getValue();
+#else
+            double val = meshV;
+#endif
+            stateWeights[localIdx] = val;
+        }
+    }
+
+    // --- surfaceScalarStates ---
+    forAll(stateInfo_["surfaceScalarStates"], idxI)
+    {
+        const word stateName = stateInfo_["surfaceScalarStates"][idxI];
+        forAll(meshPtr_->faces(), faceI)
+        {
+            label localIdx = daIndexPtr_->getLocalAdjointStateIndex(stateName, faceI);
+            double meshVal = 1.0;
+            if (faceI < daIndexPtr_->nLocalInternalFaces)
+            {
+                scalar meshSf = meshPtr_->magSf()[faceI];
+#if defined(CODI_ADF) || defined(CODI_ADR)
+                meshVal = meshSf.getValue();
+#else
+                meshVal = meshSf;
+#endif
+            }
+            else
+            {
+                label relIdx = faceI - daIndexPtr_->nLocalInternalFaces;
+                label patchIdx = daIndexPtr_->bFacePatchI[relIdx];
+                label faceIdx = daIndexPtr_->bFaceFaceI[relIdx];
+                scalar meshSf = meshPtr_->magSf().boundaryField()[patchIdx][faceIdx];
+#if defined(CODI_ADF) || defined(CODI_ADR)
+                meshVal = meshSf.getValue();
+#else
+                meshVal = meshSf;
+#endif
+            }
+
+            stateWeights[localIdx] = meshVal;
+        }
+    }
+}
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
