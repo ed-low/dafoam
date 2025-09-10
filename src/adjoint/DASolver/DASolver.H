@@ -423,6 +423,9 @@ public:
     /// return scaling vector
     void getStateScalingFactors(double* scalingFactors);
 
+    /// return volume/area weights
+    void getStateWeights(double* stateWeights);
+
     /// initialize inputFieldUnsteady from the GlobalVar class
     void initInputFieldUnsteady();
 

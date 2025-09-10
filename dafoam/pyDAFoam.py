@@ -2060,6 +2060,17 @@ class PYDAFOAM(object):
 
         return state_scaling_factors
 
+    def getStateWeights(self):
+        """
+        Return the cell volumes/face areas corresponding to the state array owned by this processor
+        """
+        nLocalStateSize = self.solver.getNLocalAdjointStates()
+        state_weights   = np.zeros(nLocalStateSize, self.dtype)
+
+        self.solver.getStateWeights(state_weights)
+
+        return state_weights
+
 
     def arrayVal2Vec(self, array1, vec):
         """
