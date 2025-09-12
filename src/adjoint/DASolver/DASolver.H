@@ -679,6 +679,9 @@ public:
     /// update the primal state boundary condition based on the primalBC dict
     void setPrimalBoundaryConditions(const label printInfo = 1);
 
+    /// set the primal state init condition based on the primalBC dict
+    void setPrimalInitialConditions(const label printInfo = 1);
+
     /// write the failed mesh to disk
     void writeFailedMesh();
 
@@ -751,7 +754,7 @@ public:
     label validateStates();
 
     /// calculate the initial value for validate states
-    void getInitStateVals(HashTable<scalar>& initState);
+    void getInitStateVals(const label printInfo);
 
     /// reset the states to its initial values this usually happens when we have nan in states
     void resetStateVals();
