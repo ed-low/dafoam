@@ -568,6 +568,12 @@ public:
     {
         DASolverPtr_->getStateWeights(stateWeights);
     }
+
+    /// return weight vector
+    void getStateVariableMap(List<word>& stateNames, List<label>& stateVarIndex, const bool includeComponentSuffix = false)
+    {
+        DASolverPtr_->getStateVariableMap(stateNames, stateVarIndex, includeComponentSuffix);
+    }
 };
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

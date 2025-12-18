@@ -4364,6 +4364,163 @@ void DASolver::getStateWeights(double* stateWeights)
 }
 
 
+
+void DASolver::getStateVariableMap(
+    List<word>& stateNames,
+    List<label>& stateVarIndex,
+    const bool includeComponentSuffix)
+{
+    /*
+    Produce:
+      - stateNames: ordered, unique list of state variable names (List<word>)
+      - stateVarIndex: length == nLocalAdjointStates; for each local DOF index,
+                       stateVarIndex[localIdx] gives the index into stateNames.
+
+    includeComponentSuffix:
+      - false (default): vector states contribute the base name "U" so all components map to the same stateName index.
+      - true: vector components become distinct names "U_x", "U_y", "U_z" (so they will appear separately in stateNames).
+    */
+
+    // number of local adjoint DOFs
+    const label nLocal = daIndexPtr_->nLocalAdjointStates;
+
+    // make sure outputs are clean
+    stateNames.clear();
+    stateVarIndex.setSize(nLocal);
+
+    // initialize mapping with a sentinel (unassigned)
+    for (label i = 0; i < nLocal; ++i)
+    {
+        stateVarIndex[i] = -1;
+    }
+
+    // map from state key -> index in stateNames
+    // Map<word,label> provides found() and insert()
+    HashTable<label> nameToIdx;
+
+    // helper to produce component suffixes
+    auto compSuffix = [&](label comp) -> word
+    {
+        // choose a readable suffix
+        if (comp == 0) return word("0");
+        if (comp == 1) return word("1");
+        if (comp == 2) return word("2");
+        // fallback: numeric suffix
+        return word("_") + Foam::name(comp);
+    };
+
+    // Register a single DOF: baseName (optionally with component) and the local index
+    auto registerState = [&](const word& baseName, label localIdx, int comp = -1)
+    {
+        word key = baseName;
+        if (includeComponentSuffix && comp >= 0)
+        {
+            key = baseName + compSuffix(comp);
+        }
+
+        if (!nameToIdx.found(key))
+        {
+            label newIdx = stateNames.size();
+            nameToIdx.insert(key, newIdx);
+            stateNames.append(key);
+        }
+
+        // assign mapping localIdx -> index in stateNames
+        stateVarIndex[localIdx] = nameToIdx[key];
+    };
+
+    // Traverse volVectorStates (3 components)
+    forAll(stateInfo_["volVectorStates"], idxI)
+    {
+        const word stateName = stateInfo_["volVectorStates"][idxI];
+
+        forAll(meshPtr_->cells(), cellI)
+        {
+            for (label comp = 0; comp < 3; ++comp)
+            {
+                label localIdx = daIndexPtr_->getLocalAdjointStateIndex(stateName, cellI, comp);
+                registerState(stateName, localIdx, comp);
+            }
+        }
+    }
+
+    // Traverse volScalarStates
+    forAll(stateInfo_["volScalarStates"], idxI)
+    {
+        const word stateName = stateInfo_["volScalarStates"][idxI];
+
+        forAll(meshPtr_->cells(), cellI)
+        {
+            label localIdx = daIndexPtr_->getLocalAdjointStateIndex(stateName, cellI);
+            registerState(stateName, localIdx, -1);
+        }
+    }
+
+    // Traverse modelStates (treated like scalars)
+    forAll(stateInfo_["modelStates"], idxI)
+    {
+        const word stateName = stateInfo_["modelStates"][idxI];
+
+        forAll(meshPtr_->cells(), cellI)
+        {
+            label localIdx = daIndexPtr_->getLocalAdjointStateIndex(stateName, cellI);
+            registerState(stateName, localIdx, -1);
+        }
+    }
+
+    // Traverse surfaceScalarStates (face-based)
+    forAll(stateInfo_["surfaceScalarStates"], idxI)
+    {
+        const word stateName = stateInfo_["surfaceScalarStates"][idxI];
+
+        forAll(meshPtr_->faces(), faceI)
+        {
+            label localIdx = daIndexPtr_->getLocalAdjointStateIndex(stateName, faceI);
+
+            // The index map already accounts for internal vs boundary faces;
+            // so we can register for every face index that returns a localIdx.
+            // If you only want internal faces, you can guard like in getResiduals.
+            registerState(stateName, localIdx, -1);
+        }
+    }
+
+    // Sanity check: make sure every local DOF got assigned to a state name.
+    bool anyUnassigned = false;
+    for (label i = 0; i < nLocal; ++i)
+    {
+        if (stateVarIndex[i] < 0)
+        {
+            anyUnassigned = true;
+            break;
+        }
+    }
+
+    if (anyUnassigned)
+    {
+        // Prefer Info<< for logging in OpenFOAM-style projects
+        Info << "DASolver::getStateVariableMap() - warning: some local adjoint indices were not assigned a state name.\n";
+        Info << "  nLocalAdjointStates = " << nLocal << ", assigned = " << stateNames.size() << endl;
+
+        // Optionally, list unassigned indices (useful for debugging)
+        for (label i = 0; i < nLocal; ++i)
+        {
+            if (stateVarIndex[i] < 0)
+            {
+                Info << "  unassigned local index: " << i << endl;
+            }
+        }
+    }
+    else
+    {
+        Info << "DASolver::getStateVariableMap() - mapped " << nLocal << " local DOFs to "
+             << stateNames.size() << " state names." << nl;
+    }
+
+    // Function returns via reference arguments stateNames and stateVarIndex
+}
+
+
+
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 } // End namespace Foam

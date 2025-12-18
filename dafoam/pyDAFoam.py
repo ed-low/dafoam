@@ -2070,6 +2070,18 @@ class PYDAFOAM(object):
         self.solver.getStateWeights(state_weights)
 
         return state_weights
+    
+    def getStateVariableMap(self, includeComponentSuffix=False):
+        """
+        Returns:
+            stateNames : list[str]
+                Ordered list of unique state variable names.
+            stateVarIndex : numpy.ndarray
+                Local adjoint DOF -> state variable index map.
+        """
+        names, idx = self.solver.getStateVariableMap(includeComponentSuffix)
+
+        return names, np.asarray(idx, dtype=int)
 
 
     def arrayVal2Vec(self, array1, vec):
