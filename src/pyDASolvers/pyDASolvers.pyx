@@ -17,6 +17,13 @@ from petsc4py.PETSc cimport Vec, PetscVec, Mat, PetscMat, KSP, PetscKSP
 cimport numpy as np
 np.import_array() # initialize C API to call PyArray_SimpleNewFromData
 
+# for state vector mapping
+from libcpp.vector cimport vector
+from libcpp.string cimport string
+from libcpp cimport bool
+import numpy as np        # Python API
+cimport numpy as np       # Cython typing
+
 cdef public api CPointerToPyArray(const double* data, int size) with gil:
     if not (data and size >= 0): raise ValueError
     cdef np.npy_intp dims = size
@@ -40,6 +47,19 @@ cdef void pyCalcBetaJacVecProdCallBack(const double* inputs, double* inputs_b, i
 
 cdef void pySetModelNameCallBack(const char* modelName, void *func):
     (<object>func)(modelName)
+
+cdef extern from "List.H" namespace "Foam":
+    cdef cppclass List[T]:
+        List() except +                # default constructor
+        void append(T)                 # push_back equivalent
+        int size()                     # get size
+        T& operator[](int)             # access element
+
+cdef extern from "word.H" namespace "Foam":
+    cdef cppclass word:
+        word() except +
+        word(const char*) except +
+        const char* c_str()
 
 # declare cpp functions
 cdef extern from "DASolvers.H" namespace "Foam":
@@ -111,6 +131,7 @@ cdef extern from "DASolvers.H" namespace "Foam":
         void updateInputFieldUnsteady()
         void getStateScalingFactors(double *)
         void getStateWeights(double *)
+        void getStateVariableMap(List[word]&, List[int]&, bool)
     
 # create python wrappers that call cpp functions
 cdef class pyDASolvers:
@@ -478,3 +499,15 @@ cdef class pyDASolvers:
         assert len(stateWeights) == self.getNLocalAdjointStates(), "invalid input array size!"
         cdef double* weight_data = <double*>stateWeights.data
         self._thisptr.getStateWeights(weight_data)
+
+    def getStateVariableMap(self, bint includeComponentSuffix=False):
+        cdef List[word] stateNames
+        cdef List[int] stateVarIndex
+
+        self._thisptr.getStateVariableMap(stateNames, stateVarIndex, includeComponentSuffix)
+
+        py_names = [stateNames[i].c_str().decode('utf-8') for i in range(stateNames.size())]  # convert word -> str
+        py_idx = np.array([stateVarIndex[i] for i in range(stateVarIndex.size())], dtype=np.int32)
+
+        return py_names, py_idx
+

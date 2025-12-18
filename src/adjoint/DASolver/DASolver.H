@@ -441,6 +441,9 @@ public:
     /// return volume/area weights
     void getStateWeights(double* stateWeights);
 
+    /// return state mapping
+    void getStateVariableMap(List<word>& stateNames, List<label>& stateVarIndex, const bool includeComponentSuffix = false);
+
     /// initialize inputFieldUnsteady from the GlobalVar class
     void initInputFieldUnsteady();
 
