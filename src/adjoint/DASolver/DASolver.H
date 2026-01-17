@@ -429,6 +429,9 @@ public:
     /// return state mapping
     void getStateVariableMap(List<word>& stateNames, List<label>& stateVarIndex, const bool includeComponentSuffix = false);
 
+    /// return cell centroid coordinates
+    void getCellCentroids(double *centroids);
+
     /// initialize inputFieldUnsteady from the GlobalVar class
     void initInputFieldUnsteady();
 
