@@ -584,6 +584,12 @@ public:
     {
         DASolverPtr_->getStateVariableMap(stateNames, stateVarIndex, includeComponentSuffix);
     }
+
+    /// return cell centroid vector
+    void getCellCentroids(double* centroids)
+    {
+        DASolverPtr_->getCellCentroids(centroids);
+    }
 };
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

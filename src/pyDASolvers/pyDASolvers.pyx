@@ -132,6 +132,7 @@ cdef extern from "DASolvers.H" namespace "Foam":
         void getStateScalingFactors(double *)
         void getStateWeights(double *)
         void getStateVariableMap(List[word]&, List[int]&, bool)
+        void getCellCentroids(double *)
     
 # create python wrappers that call cpp functions
 cdef class pyDASolvers:
@@ -510,4 +511,9 @@ cdef class pyDASolvers:
         py_idx = np.array([stateVarIndex[i] for i in range(stateVarIndex.size())], dtype=np.int32)
 
         return py_names, py_idx
+
+    def getCellCentroids(self, np.ndarray[double, ndim=1, mode="c"] centroids):
+        assert len(centroids) == 3 * self.getNLocalCells(), "invalid input array size!"
+        cdef double* centroid_data = <double*>centroids.data
+        self._thisptr.getCellCentroids(centroid_data)
 

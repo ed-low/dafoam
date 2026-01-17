@@ -4779,6 +4779,26 @@ void DASolver::getStateVariableMap(
 
 
 
+void DASolver::getCellCentroids(double* centroids)
+{
+    // cell centers as a volVectorField
+    const volVectorField& C = meshPtr_->C();
+
+    label counterI = 0;
+    forAll(C, cellI)
+    {
+        for (label i = 0; i < 3; i++)
+        {
+            assignValueCheckAD(centroids[counterI], C[cellI][i]);
+            counterI++;
+        }
+    }
+}
+
+
+
+
+
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 } // End namespace Foam
