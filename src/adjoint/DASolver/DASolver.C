@@ -4777,8 +4777,6 @@ void DASolver::getStateVariableMap(
     // Function returns via reference arguments stateNames and stateVarIndex
 }
 
-
-
 void DASolver::getCellCentroids(double* centroids)
 {
     // cell centers as a volVectorField
@@ -4795,7 +4793,121 @@ void DASolver::getCellCentroids(double* centroids)
     }
 }
 
+void DASolver::getGlobalIndexLists(
+    List<label>& adjStateGlobalIdx,
+    List<label>& pointGlobalIdx,
+    List<label>& cellGlobalIdx)
+{
+    // ADJOINT STATE GLOBAL INDICES
+    // number of local adjoint DOFs
+    const label nLocalStates = daIndexPtr_->nLocalAdjointStates;
 
+    // make sure outputs are clean
+    adjStateGlobalIdx.clear();
+    adjStateGlobalIdx.setSize(nLocalStates);
+
+    // initialize mapping with a sentinel (unassigned)
+    for (label i = 0; i < nLocalStates; ++i)
+    {
+        adjStateGlobalIdx[i] = -1;
+    }
+
+    // Traverse volVectorStates (3 components)
+    forAll(stateInfo_["volVectorStates"], idxI)
+    {
+        const word stateName = stateInfo_["volVectorStates"][idxI];
+
+        forAll(meshPtr_->cells(), cellI)
+        {
+            for (label comp = 0; comp < 3; ++comp)
+            {
+                label localIdx  = daIndexPtr_->getLocalAdjointStateIndex(stateName, cellI, comp);
+                label globalIdx = daIndexPtr_->getGlobalAdjointStateIndex(stateName, cellI, comp);
+                adjStateGlobalIdx[localIdx] = globalIdx;
+            }
+        }
+    }
+
+    // Traverse volScalarStates
+    forAll(stateInfo_["volScalarStates"], idxI)
+    {
+        const word stateName = stateInfo_["volScalarStates"][idxI];
+
+        forAll(meshPtr_->cells(), cellI)
+        {
+            label localIdx  = daIndexPtr_->getLocalAdjointStateIndex(stateName, cellI);
+            label globalIdx = daIndexPtr_->getGlobalAdjointStateIndex(stateName, cellI);
+            adjStateGlobalIdx[localIdx] = globalIdx;
+        }
+    }
+
+    // Traverse modelStates (treated like scalars)
+    forAll(stateInfo_["modelStates"], idxI)
+    {
+        const word stateName = stateInfo_["modelStates"][idxI];
+
+        forAll(meshPtr_->cells(), cellI)
+        {
+            label localIdx  = daIndexPtr_->getLocalAdjointStateIndex(stateName, cellI);
+            label globalIdx = daIndexPtr_->getGlobalAdjointStateIndex(stateName, cellI);
+            adjStateGlobalIdx[localIdx] = globalIdx;
+        }
+    }
+
+    // Traverse surfaceScalarStates (face-based)
+    forAll(stateInfo_["surfaceScalarStates"], idxI)
+    {
+        const word stateName = stateInfo_["surfaceScalarStates"][idxI];
+
+        forAll(meshPtr_->faces(), faceI)
+        {
+            label localIdx  = daIndexPtr_->getLocalAdjointStateIndex(stateName, faceI);
+            label globalIdx = daIndexPtr_->getGlobalAdjointStateIndex(stateName, faceI);
+            adjStateGlobalIdx[localIdx] = globalIdx;
+        }
+    }
+
+    // POINT COORDINATE GLOBAL INDICES
+    // number of local points
+    const label nLocalPoints = daIndexPtr_->nLocalPoints;
+
+    // make sure outputs are clean
+    pointGlobalIdx.clear();
+    pointGlobalIdx.setSize(nLocalPoints);
+
+    // initialize mapping with a sentinel (unassigned)
+    for (label i = 0; i < nLocalPoints; ++i)
+    {
+        pointGlobalIdx[i] = -1;
+    }
+
+    for (label localIdx = 0; localIdx < nLocalPoints; localIdx++)
+    {
+        label comp      = 0;
+        label globalIdx = daIndexPtr_->getGlobalXvIndex(localIdx, 0);
+        pointGlobalIdx[localIdx] = globalIdx / 3;
+    }
+
+    // CELL COORDINATE GLOBAL INDICES
+    // number of local adjoint DOFs
+    const label nLocalCells = daIndexPtr_->nLocalCells;
+
+    // make sure outputs are clean
+    cellGlobalIdx.clear();
+    cellGlobalIdx.setSize(nLocalCells);
+
+    // initialize mapping with a sentinel (unassigned)
+    for (label i = 0; i < nLocalCells; ++i)
+    {
+        cellGlobalIdx[i] = -1;
+    }
+
+    for (label localIdx = 0; localIdx < nLocalCells; localIdx++)
+    {
+        label globalIdx = daIndexPtr_->getGlobalCellIndex(localIdx);
+        cellGlobalIdx[localIdx] = globalIdx;
+    }
+}
 
 
 

@@ -133,6 +133,7 @@ cdef extern from "DASolvers.H" namespace "Foam":
         void getStateWeights(double *)
         void getStateVariableMap(List[word]&, List[int]&, bool)
         void getCellCentroids(double *)
+        void getGlobalIndexLists(List[int]&, List[int]&, List[int]&)
     
 # create python wrappers that call cpp functions
 cdef class pyDASolvers:
@@ -516,4 +517,17 @@ cdef class pyDASolvers:
         assert len(centroids) == 3 * self.getNLocalCells(), "invalid input array size!"
         cdef double* centroid_data = <double*>centroids.data
         self._thisptr.getCellCentroids(centroid_data)
+
+    def getGlobalIndexLists(self):
+        cdef List[int] adjStateGlobalIdx
+        cdef List[int] pointGlobalIdx
+        cdef List[int] cellGlobalIdx
+
+        self._thisptr.getGlobalIndexLists(adjStateGlobalIdx, pointGlobalIdx, cellGlobalIdx)
+
+        py_adjoint_idx = np.array([adjStateGlobalIdx[i] for i in range(adjStateGlobalIdx.size())], dtype=np.int32)
+        py_point_idx   = np.array([pointGlobalIdx[i] for i in range(pointGlobalIdx.size())], dtype=np.int32)
+        py_cell_idx    = np.array([cellGlobalIdx[i] for i in range(cellGlobalIdx.size())], dtype=np.int32)
+
+        return py_adjoint_idx, py_point_idx, py_cell_idx
 

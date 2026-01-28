@@ -447,6 +447,9 @@ public:
     /// return cell centroid coordinates
     void getCellCentroids(double *centroids);
 
+    /// return global indices
+    void getGlobalIndexLists(List<label>& adjStateGlobalIdx, List<label>& pointGlobalIdx, List<label>& cellGlobalIdx);
+
     /// initialize inputFieldUnsteady from the GlobalVar class
     void initInputFieldUnsteady();
 
