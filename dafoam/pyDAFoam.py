@@ -2155,6 +2155,22 @@ class PYDAFOAM(object):
 
         return names, np.asarray(idx, dtype=int)
     
+    def getCellCentroids(self, as_matrix=False):
+        """
+        Return the cell centroid coordinates corresponding to the state array owned by this processor
+        """
+        nLocalCells          = self.solver.getNLocalCells()
+        cell_centroids_flat  = np.zeros(3 * nLocalCells, self.dtype)
+
+        self.solver.getCellCentroids(cell_centroids_flat)
+
+        if as_matrix:
+            cell_centroids = cell_centroids_flat.reshape((-1, 3))
+        else:
+            cell_centroids = cell_centroids_flat
+
+        return cell_centroids
+    
     def getGlobalIndicesForLocalArrays(self):
         """
         Return the global indices for the elements of local arrays
