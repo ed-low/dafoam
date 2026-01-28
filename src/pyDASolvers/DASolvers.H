@@ -580,6 +580,13 @@ public:
     {
         DASolverPtr_->getCellCentroids(centroids);
     }
+
+    /// return global indices lists
+    void getGlobalIndexLists(List<label>& adjStateGlobalIdx, List<label>& pointGlobalIdx, List<label>& cellGlobalIdx)
+    {
+        DASolverPtr_->getGlobalIndexLists(adjStateGlobalIdx,pointGlobalIdx, cellGlobalIdx);
+    }
+
 };
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
