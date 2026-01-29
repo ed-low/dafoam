@@ -2175,9 +2175,9 @@ class PYDAFOAM(object):
         """
         Return the global indices for the elements of local arrays
         """
-        adjoint_state_global_indices, point_global_indices, cell_global_indices, face_global_indices= self.solver.getGlobalIndexLists()
+        adjoint_state_global_indices, point_global_indices, cell_global_indices, cell_vector_global_indices, face_global_indices = self.solver.getGlobalIndexLists()
 
-        return adjoint_state_global_indices, point_global_indices, cell_global_indices, face_global_indices
+        return adjoint_state_global_indices, point_global_indices, cell_global_indices, cell_vector_global_indices, face_global_indices
     
     def getStateVariableMap(self, includeComponentSuffix=True):
         """

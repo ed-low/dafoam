@@ -4797,6 +4797,7 @@ void DASolver::getGlobalIndexLists(
     List<label>& adjStateGlobalIdx,
     List<label>& pointGlobalIdx,
     List<label>& cellGlobalIdx,
+    List<label>& cellVectorGlobalIdx,
     List<label>& faceGlobalIdx)
 {
     // ADJOINT STATE GLOBAL INDICES
@@ -4889,8 +4890,8 @@ void DASolver::getGlobalIndexLists(
         pointGlobalIdx[localIdx] = globalIdx / 3;
     }
 
-    // CELL COORDINATE GLOBAL INDICES
-    // number of local adjoint DOFs
+    // CELL GLOBAL INDICES
+    // number of local cells
     const label nLocalCells = daIndexPtr_->nLocalCells;
 
     // make sure outputs are clean
@@ -4903,10 +4904,30 @@ void DASolver::getGlobalIndexLists(
         cellGlobalIdx[i] = -1;
     }
 
-    for (label localIdx = 0; localIdx < nLocalCells; localIdx++)
+    forAll(meshPtr_->cells(), cellI)
     {
-        label globalIdx = daIndexPtr_->getGlobalCellIndex(localIdx);
-        cellGlobalIdx[localIdx] = globalIdx;
+        label globalIdx = daIndexPtr_->getGlobalCellIndex(cellI);
+        cellGlobalIdx[cellI] = globalIdx;
+    }
+
+    // CELL VECTOR GLOBAL INDICES
+    // make sure outputs are clean
+    cellVectorGlobalIdx.clear();
+    cellVectorGlobalIdx.setSize(3*nLocalCells);
+
+    // initialize mapping with a sentinel (unassigned)
+    for (label i = 0; i < 3*nLocalCells; ++i)
+    {
+        cellVectorGlobalIdx[i] = -1;
+    }
+
+    forAll(meshPtr_->cells(), cellI)
+    {
+        for (label comp = 0; comp < 3; comp++)
+        {
+            label globalIdx = daIndexPtr_->getGlobalCellVectorIndex(cellI, comp);
+            cellVectorGlobalIdx[3*cellI + comp] = globalIdx;
+        }
     }
 
     // FACE GLOBAL INDICES
@@ -4923,10 +4944,10 @@ void DASolver::getGlobalIndexLists(
         faceGlobalIdx[i] = -1;
     }
 
-    for (label localIdx = 0; localIdx < nLocalFaces; localIdx++)
+    forAll(meshPtr_->faces(), faceI)
     {
-        label globalIdx = daIndexPtr_->getGlobalFaceIndex(localIdx);
-        faceGlobalIdx[localIdx] = globalIdx;
+        label globalIdx = daIndexPtr_->getGlobalFaceIndex(faceI);
+        faceGlobalIdx[faceI] = globalIdx;
     }
 }
 

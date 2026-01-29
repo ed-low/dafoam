@@ -592,9 +592,9 @@ public:
     }
 
     /// return global indices lists
-    void getGlobalIndexLists(List<label>& adjStateGlobalIdx, List<label>& pointGlobalIdx, List<label>& cellGlobalIdx, List<label>& faceGlobalIdx)
+    void getGlobalIndexLists(List<label>& adjStateGlobalIdx, List<label>& pointGlobalIdx, List<label>& cellGlobalIdx, List<label>& cellVectorGlobalIdx, List<label>& faceGlobalIdx)
     {
-        DASolverPtr_->getGlobalIndexLists(adjStateGlobalIdx,pointGlobalIdx, cellGlobalIdx, faceGlobalIdx);
+        DASolverPtr_->getGlobalIndexLists(adjStateGlobalIdx,pointGlobalIdx, cellGlobalIdx, cellVectorGlobalIdx, faceGlobalIdx);
     }
 
 };
