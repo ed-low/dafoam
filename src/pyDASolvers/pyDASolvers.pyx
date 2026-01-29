@@ -134,6 +134,7 @@ cdef extern from "DASolvers.H" namespace "Foam":
         void getStateVariableMap(List[word]&, List[int]&, bool)
         void getCellCentroids(double *)
         void getGlobalIndexLists(List[int]&, List[int]&, List[int]&, List[int]&)
+        int getNLocalFaces()
     
 # create python wrappers that call cpp functions
 cdef class pyDASolvers:
@@ -532,4 +533,7 @@ cdef class pyDASolvers:
         py_face_idx    = np.array([faceGlobalIdx[i] for i in range(faceGlobalIdx.size())], dtype=np.int32)
 
         return py_adjoint_idx, py_point_idx, py_cell_idx, py_face_idx
+
+    def getNLocalFaces(self):
+        return self._thisptr.getNLocalFaces()
 

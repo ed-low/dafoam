@@ -536,6 +536,12 @@ public:
         return meshPtr_->nPoints();
     }
 
+    /// return the number of local cells
+    label getNLocalFaces() const
+    {
+        return meshPtr_->nFaces();
+    }
+
     /// initialize DASolver::daFunctionPtrList_ one needs to call this before calling printAllFunctions
     void setDAFunctionList();
 
