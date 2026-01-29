@@ -587,6 +587,12 @@ public:
         DASolverPtr_->getGlobalIndexLists(adjStateGlobalIdx,pointGlobalIdx, cellGlobalIdx, faceGlobalIdx);
     }
 
+    /// return the number of local faces
+    label getNLocalFaces() const
+    {
+        return DASolverPtr_->getNLocalFaces();
+    }
+
 };
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
