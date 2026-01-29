@@ -131,7 +131,7 @@ cdef extern from "DASolvers.H" namespace "Foam":
         void getStateWeights(double *)
         void getStateVariableMap(List[word]&, List[int]&, bool)
         void getCellCentroids(double *)
-        void getGlobalIndexLists(List[int]&, List[int]&, List[int]&)
+        void getGlobalIndexLists(List[int]&, List[int]&, List[int]&, List[int]&)
     
 # create python wrappers that call cpp functions
 cdef class pyDASolvers:
@@ -514,12 +514,14 @@ cdef class pyDASolvers:
         cdef List[int] adjStateGlobalIdx
         cdef List[int] pointGlobalIdx
         cdef List[int] cellGlobalIdx
+        cdef List[int] faceGlobalIdx
 
-        self._thisptr.getGlobalIndexLists(adjStateGlobalIdx, pointGlobalIdx, cellGlobalIdx)
+        self._thisptr.getGlobalIndexLists(adjStateGlobalIdx, pointGlobalIdx, cellGlobalIdx, faceGlobalIdx)
 
         py_adjoint_idx = np.array([adjStateGlobalIdx[i] for i in range(adjStateGlobalIdx.size())], dtype=np.int32)
         py_point_idx   = np.array([pointGlobalIdx[i] for i in range(pointGlobalIdx.size())], dtype=np.int32)
         py_cell_idx    = np.array([cellGlobalIdx[i] for i in range(cellGlobalIdx.size())], dtype=np.int32)
+        py_face_idx    = np.array([faceGlobalIdx[i] for i in range(faceGlobalIdx.size())], dtype=np.int32)
 
-        return py_adjoint_idx, py_point_idx, py_cell_idx
+        return py_adjoint_idx, py_point_idx, py_cell_idx, py_face_idx
 

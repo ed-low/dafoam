@@ -4538,7 +4538,8 @@ void DASolver::getCellCentroids(double* centroids)
 void DASolver::getGlobalIndexLists(
     List<label>& adjStateGlobalIdx,
     List<label>& pointGlobalIdx,
-    List<label>& cellGlobalIdx)
+    List<label>& cellGlobalIdx,
+    List<label>& faceGlobalIdx)
 {
     // ADJOINT STATE GLOBAL INDICES
     // number of local adjoint DOFs
@@ -4648,6 +4649,26 @@ void DASolver::getGlobalIndexLists(
     {
         label globalIdx = daIndexPtr_->getGlobalCellIndex(localIdx);
         cellGlobalIdx[localIdx] = globalIdx;
+    }
+
+    // FACE GLOBAL INDICES
+    // number of local adjoint DOFs
+    const label nLocalFaces = daIndexPtr_->nLocalFaces;
+
+    // make sure outputs are clean
+    faceGlobalIdx.clear();
+    faceGlobalIdx.setSize(nLocalFaces);
+
+    // initialize mapping with a sentinel (unassigned)
+    for (label i = 0; i < nLocalFaces; ++i)
+    {
+        faceGlobalIdx[i] = -1;
+    }
+
+    for (label localIdx = 0; localIdx < nLocalFaces; localIdx++)
+    {
+        label globalIdx = daIndexPtr_->getGlobalFaceIndex(localIdx);
+        faceGlobalIdx[localIdx] = globalIdx;
     }
 }
 
