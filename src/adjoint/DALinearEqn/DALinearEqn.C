@@ -418,6 +418,13 @@ label DALinearEqn::solveLinearEqn(
     VecAssemblyEnd(solVec);
 
     // now we need to check if the linear equation solution is successful
+    // First check PETSc convergence reason - if negative, then solution diverged
+    if (reason < 0)
+    {
+        Info << "KSP failed with PETSc reason: " << reason << endl;
+        Info << "Linear solver diverged or broke down!" << endl;
+        return 1;
+    }
 
     scalar absResRatio = finalResNorm / daOption_.getSubDictOption<scalar>("adjEqnOption", "gmresAbsTol");
     scalar relResRatio = finalResNorm / initResNorm / daOption_.getSubDictOption<scalar>("adjEqnOption", "gmresRelTol");
