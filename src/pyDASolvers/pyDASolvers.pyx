@@ -24,6 +24,9 @@ from libcpp cimport bool
 import numpy as np        # Python API
 cimport numpy as np       # Cython typing
 
+# for patchAveraging
+from libcpp.map cimport map
+
 cdef public api CPointerToPyArray(const double* data, int size) with gil:
     if not (data and size >= 0): raise ValueError
     cdef np.npy_intp dims = size
@@ -135,6 +138,7 @@ cdef extern from "DASolvers.H" namespace "Foam":
         void getCellCentroids(double *)
         void getGlobalIndexLists(List[int]&, List[int]&, List[int]&, List[int]&)
         int getNLocalFaces()
+        map[string, double] getPatchStateAveragesMap(const string&)
     
 # create python wrappers that call cpp functions
 cdef class pyDASolvers:
@@ -536,4 +540,12 @@ cdef class pyDASolvers:
 
     def getNLocalFaces(self):
         return self._thisptr.getNLocalFaces()
+
+    def getPatchStateAverages(self, patchName):
+        cdef string cpp_patch = patchName.encode("utf-8")
+        cdef map[string, double] cpp_map
+
+        cpp_map = self._thisptr.getPatchStateAveragesMap(cpp_patch)
+
+        return {k.decode(): v for k, v in cpp_map}
 

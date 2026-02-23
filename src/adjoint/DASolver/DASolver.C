@@ -7,6 +7,12 @@
 
 #include "DASolver.H"
 
+// ** For getPatchAverage
+#include <map>
+#include <string>
+// ** 
+
+
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 // initialize the static variable, which will be used in forward mode AD
 // computation for AOA and BC derivatives
@@ -4930,7 +4936,156 @@ void DASolver::getGlobalIndexLists(
     }
 }
 
+void DASolver::getPatchStateAverages(
+    const word patchName,
+    HashTable<scalar>& patchAverages
+)
+{
+    const fvMesh& mesh = meshPtr_();
+    label patchID = mesh.boundaryMesh().findPatchID(patchName);
 
+    if (patchID < 0)
+    {
+        FatalErrorInFunction
+            << "Patch " << patchName << " not found!"
+            << exit(FatalError);
+    }
+
+    const scalarField& magSf = mesh.magSf().boundaryField()[patchID];
+
+    scalar areaSum = 0.0;
+    forAll(magSf, faceI)
+    {
+        areaSum += magSf[faceI];
+    }
+    reduce(areaSum, sumOp<scalar>());
+
+    /* ===============================
+       volVectorStates → magnitude
+       =============================== */
+
+    forAll(stateInfo_["volVectorStates"], idxI)
+    {
+        const word stateName = stateInfo_["volVectorStates"][idxI];
+
+        const volVectorField& field =
+            mesh.lookupObject<volVectorField>(stateName);
+
+        const fvPatchVectorField& patchField =
+            field.boundaryField()[patchID];
+
+        vector sumVec = vector::zero;
+
+        forAll(patchField, faceI)
+        {
+            sumVec += patchField[faceI] * magSf[faceI];
+        }
+
+        reduce(sumVec, sumOp<vector>());
+
+        vector meanVec = sumVec / areaSum;
+        scalar magMean = mag(meanVec);
+
+        patchAverages.insert(stateName, magMean);
+    }
+
+    /* ===============================
+       volScalarStates
+       =============================== */
+
+    forAll(stateInfo_["volScalarStates"], idxI)
+    {
+        const word stateName = stateInfo_["volScalarStates"][idxI];
+
+        const volScalarField& field =
+            mesh.lookupObject<volScalarField>(stateName);
+
+        const fvPatchScalarField& patchField =
+            field.boundaryField()[patchID];
+
+        scalar sumVal = 0.0;
+
+        forAll(patchField, faceI)
+        {
+            sumVal += patchField[faceI] * magSf[faceI];
+        }
+
+        reduce(sumVal, sumOp<scalar>());
+
+        patchAverages.insert(stateName, sumVal / areaSum);
+    }
+
+    /* ===============================
+       modelStates
+       =============================== */
+
+    forAll(stateInfo_["modelStates"], idxI)
+    {
+        const word stateName = stateInfo_["modelStates"][idxI];
+
+        const volScalarField& field =
+            mesh.lookupObject<volScalarField>(stateName);
+
+        const fvPatchScalarField& patchField =
+            field.boundaryField()[patchID];
+
+        scalar sumVal = 0.0;
+
+        forAll(patchField, faceI)
+        {
+            sumVal += patchField[faceI] * magSf[faceI];
+        }
+
+        reduce(sumVal, sumOp<scalar>());
+
+        patchAverages.insert(stateName, sumVal / areaSum);
+    }
+
+    /* ===============================
+       surfaceScalarStates
+       =============================== */
+
+    forAll(stateInfo_["surfaceScalarStates"], idxI)
+    {
+        const word stateName = stateInfo_["surfaceScalarStates"][idxI];
+
+        const surfaceScalarField& field =
+            mesh.lookupObject<surfaceScalarField>(stateName);
+
+        const fvsPatchScalarField& patchField =
+            field.boundaryField()[patchID];
+
+        scalar sumVal = 0.0;
+
+        forAll(patchField, faceI)
+        {
+            sumVal += patchField[faceI] * magSf[faceI];
+        }
+
+        reduce(sumVal, sumOp<scalar>());
+
+        patchAverages.insert(stateName, sumVal / areaSum);
+    }
+}
+
+std::map<std::string, double> DASolver::getPatchStateAveragesMap(const word patchName)
+{
+    HashTable<scalar> table;
+    getPatchStateAverages(patchName, table);
+
+    std::map<std::string, double> result;
+
+    forAllConstIter(HashTable<scalar>, table, iter)
+    {
+#ifdef CODI_NO_AD
+        result[iter.key()] = iter();
+#else
+        result[iter.key()] = iter().getValue();
+#endif
+    }
+
+    return result;
+}
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

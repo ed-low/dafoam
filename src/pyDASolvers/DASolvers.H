@@ -603,6 +603,12 @@ public:
         return DASolverPtr_->getNLocalFaces();
     }
 
+    /// compute and return area averaged values of temperature, pressure, velocity, and corresponding viscosity for a given patch
+    std::map<std::string, double> getPatchStateAveragesMap(const word patchName)
+    {
+        return DASolverPtr_->getPatchStateAveragesMap(patchName);
+    }
+
 };
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

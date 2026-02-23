@@ -42,6 +42,11 @@
 #include "DAGlobalVar.H"
 #include "DATimeOp.H"
 
+//** For getPatchAverage
+#include <map>
+#include <string>
+//** 
+
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
@@ -449,6 +454,10 @@ public:
 
     /// return global indices
     void getGlobalIndexLists(List<label>& adjStateGlobalIdx, List<label>& pointGlobalIdx, List<label>& cellGlobalIdx, List<label>& faceGlobalIdx);
+
+    /// compute and return area averaged values of temperature, pressure, velocity, and corresponding viscosity for a given patch
+    void getPatchStateAverages(const word patchName, HashTable<scalar>& patchAverages);
+    std::map<std::string, double> getPatchStateAveragesMap(const word patchName);
 
     /// initialize inputFieldUnsteady from the GlobalVar class
     void initInputFieldUnsteady();
