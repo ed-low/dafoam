@@ -128,7 +128,7 @@ cdef extern from "DASolvers.H" namespace "Foam":
         void writeSensMapSurface(char *, double *, double *, int, double)
         void writeSensMapField(char *, double *, char *, double)
         double getLatestTime()
-        void writeAdjointFields(char *, double, double *)
+        void writeAdjointFields(char *, double, double *, bool)
         int hasVolCoordInput()
         void meanStatesToStates()
         void updateInputFieldUnsteady()
@@ -482,14 +482,14 @@ cdef class pyDASolvers:
     def hasVolCoordInput(self):
         return self._thisptr.hasVolCoordInput()
     
-    def writeAdjointFields(self, function, writeTime, np.ndarray[double, ndim=1, mode="c"] psi):
+    def writeAdjointFields(self, function, writeTime, np.ndarray[double, ndim=1, mode="c"] psi, bint useStateNameOnly=False):
         nAdjStates = self.getNLocalAdjointStates()
 
         assert len(psi) == nAdjStates, "invalid array size!"
 
         cdef double *psi_data = <double*>psi.data
 
-        return self._thisptr.writeAdjointFields(function.encode(), writeTime, psi_data)
+        return self._thisptr.writeAdjointFields(function.encode(), writeTime, psi_data, useStateNameOnly)
     
     def meanStatesToStates(self):
         self._thisptr.meanStatesToStates()

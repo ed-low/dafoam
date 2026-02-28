@@ -819,7 +819,8 @@ public:
     void writeAdjointFields(
         const word function,
         const double writeTime,
-        const double* psi);
+        const double* psi,
+        const bool useStateNameOnly = false);
 
     /// force to use meshWaveFrozen for wallDist->method, regardless what is actually set in fvSchemes
     void forceMeshWaveFrozen();

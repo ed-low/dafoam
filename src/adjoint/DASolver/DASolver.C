@@ -3965,7 +3965,8 @@ void DASolver::writeSensMapField(
 void DASolver::writeAdjointFields(
     const word function,
     const double writeTime,
-    const double* psi)
+    const double* psi,
+    const bool useStateNameOnly)
 {
     /*
     Description:
@@ -3981,11 +3982,24 @@ void DASolver::writeAdjointFields(
 
     runTimePtr_->setTime(writeTime, 0);
 
+    // Naming policy helper
+    auto makeVarName = [&](const word& stateName) -> word
+    {
+        if (useStateNameOnly)
+        {
+            return stateName;
+        }
+        else
+        {
+            return "adjoint_" + function + "_" + stateName;
+        }
+    };
+
     forAll(stateInfo_["volVectorStates"], idxI)
     {
         const word stateName = stateInfo_["volVectorStates"][idxI];
         const volVectorField& state = meshPtr_->thisDb().lookupObject<volVectorField>(stateName);
-        word varName = "adjoint_" + function + "_" + stateName;
+        word varName = makeVarName(stateName);
         volVectorField adjointVar(varName, state);
         forAll(state, cellI)
         {
@@ -4003,7 +4017,7 @@ void DASolver::writeAdjointFields(
     {
         const word stateName = stateInfo_["volScalarStates"][idxI];
         const volScalarField& state = meshPtr_->thisDb().lookupObject<volScalarField>(stateName);
-        word varName = "adjoint_" + function + "_" + stateName;
+        word varName = makeVarName(stateName);
         volScalarField adjointVar(varName, state);
         forAll(state, cellI)
         {
@@ -4018,7 +4032,7 @@ void DASolver::writeAdjointFields(
     {
         const word stateName = stateInfo_["modelStates"][idxI];
         const volScalarField& state = meshPtr_->thisDb().lookupObject<volScalarField>(stateName);
-        word varName = "adjoint_" + function + "_" + stateName;
+        word varName = makeVarName(stateName);
         volScalarField adjointVar(varName, state);
         forAll(state, cellI)
         {
@@ -4033,7 +4047,7 @@ void DASolver::writeAdjointFields(
     {
         const word stateName = stateInfo_["surfaceScalarStates"][idxI];
         const surfaceScalarField& state = meshPtr_->thisDb().lookupObject<surfaceScalarField>(stateName);
-        word varName = "adjoint_" + function + "_" + stateName;
+        word varName = makeVarName(stateName);
         surfaceScalarField adjointVar(varName, state);
 
         forAll(meshPtr_->faces(), faceI)
@@ -4759,26 +4773,26 @@ void DASolver::getStateVariableMap(
         }
     }
 
-    if (anyUnassigned)
-    {
-        // Prefer Info<< for logging in OpenFOAM-style projects
-        Info << "DASolver::getStateVariableMap() - warning: some local adjoint indices were not assigned a state name.\n";
-        Info << "  nLocalAdjointStates = " << nLocal << ", assigned = " << stateNames.size() << endl;
+    // if (anyUnassigned)
+    // {
+    //     // Prefer Info<< for logging in OpenFOAM-style projects
+    //     Info << "DASolver::getStateVariableMap() - warning: some local adjoint indices were not assigned a state name.\n";
+    //     Info << "  nLocalAdjointStates = " << nLocal << ", assigned = " << stateNames.size() << endl;
 
-        // Optionally, list unassigned indices (useful for debugging)
-        for (label i = 0; i < nLocal; ++i)
-        {
-            if (stateVarIndex[i] < 0)
-            {
-                Info << "  unassigned local index: " << i << endl;
-            }
-        }
-    }
-    else
-    {
-        Info << "DASolver::getStateVariableMap() - mapped " << nLocal << " local DOFs to "
-             << stateNames.size() << " state names." << nl;
-    }
+    //     // Optionally, list unassigned indices (useful for debugging)
+    //     for (label i = 0; i < nLocal; ++i)
+    //     {
+    //         if (stateVarIndex[i] < 0)
+    //         {
+    //             Info << "  unassigned local index: " << i << endl;
+    //         }
+    //     }
+    // }
+    // else
+    // {
+    //     Info << "DASolver::getStateVariableMap() - mapped " << nLocal << " local DOFs to "
+    //          << stateNames.size() << " state names." << nl;
+    // }
 
     // Function returns via reference arguments stateNames and stateVarIndex
 }
