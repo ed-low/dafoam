@@ -892,7 +892,7 @@ class PYDAFOAM(object):
         else:
             self.solver.calcPrimalResidualStatistics(mode)
 
-    def writeAdjointFields(self, function, writeTime, psi):
+    def writeAdjointFields(self, function, writeTime, psi, dropAdjointPrefix=False):
         """
         Write the adjoint variables in OpenFOAM field format for post-processing
         """
@@ -900,7 +900,7 @@ class PYDAFOAM(object):
         if self.getOption("writeAdjointFields"):
             if len(self.getOption("function").keys()) > 1:
                 raise Error("writeAdjointFields supports only one function, while multiple are defined!")
-            self.solver.writeAdjointFields(function, writeTime, psi)
+            self.solver.writeAdjointFields(function, writeTime, psi, dropAdjointPrefix)
 
     def evalFunctions(self, funcs):
         """

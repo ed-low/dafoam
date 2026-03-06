@@ -517,9 +517,9 @@ public:
         const word function,
         const double writeTime,
         const double* psi,
-        const bool useStateNameOnly = false)
+        const bool dropAdjointPrefix = false)
     {
-        DASolverPtr_->writeAdjointFields(function, writeTime, psi, useStateNameOnly);
+        DASolverPtr_->writeAdjointFields(function, writeTime, psi, dropAdjointPrefix);
     }
 
     /// write the sensitivity map for all wall surfaces

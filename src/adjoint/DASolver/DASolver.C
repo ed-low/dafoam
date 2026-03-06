@@ -3966,7 +3966,7 @@ void DASolver::writeAdjointFields(
     const word function,
     const double writeTime,
     const double* psi,
-    const bool useStateNameOnly)
+    const bool dropAdjointPrefix)
 {
     /*
     Description:
@@ -3985,9 +3985,9 @@ void DASolver::writeAdjointFields(
     // Naming policy helper
     auto makeVarName = [&](const word& stateName) -> word
     {
-        if (useStateNameOnly)
+        if (dropAdjointPrefix)
         {
-            return stateName;
+            return function + "_" + stateName;
         }
         else
         {

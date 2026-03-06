@@ -482,14 +482,14 @@ cdef class pyDASolvers:
     def hasVolCoordInput(self):
         return self._thisptr.hasVolCoordInput()
     
-    def writeAdjointFields(self, function, writeTime, np.ndarray[double, ndim=1, mode="c"] psi, bint useStateNameOnly=False):
+    def writeAdjointFields(self, function, writeTime, np.ndarray[double, ndim=1, mode="c"] psi, bint dropAdjointPrefix=False):
         nAdjStates = self.getNLocalAdjointStates()
 
         assert len(psi) == nAdjStates, "invalid array size!"
 
         cdef double *psi_data = <double*>psi.data
 
-        return self._thisptr.writeAdjointFields(function.encode(), writeTime, psi_data, useStateNameOnly)
+        return self._thisptr.writeAdjointFields(function.encode(), writeTime, psi_data, dropAdjointPrefix)
     
     def meanStatesToStates(self):
         self._thisptr.meanStatesToStates()
