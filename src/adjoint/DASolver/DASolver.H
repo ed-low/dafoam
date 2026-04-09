@@ -539,6 +539,12 @@ public:
         return meshPtr_->nCells();
     }
 
+    /// return the number of global cells
+    label getNGlobalCells() const
+    {
+        return daIndexPtr_->nGlobalCells;
+    }
+
     /// return the number of local points
     label getNLocalPoints() const
     {
@@ -824,6 +830,12 @@ public:
 
     /// force to use meshWaveFrozen for wallDist->method, regardless what is actually set in fvSchemes
     void forceMeshWaveFrozen();
+
+    /// get the global array for flow field, this can be used to get the betaFI design variables
+    void getOFFieldGlobal(
+        const word fieldName,
+        const word fieldType,
+        double* globalField);
 };
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
