@@ -138,7 +138,7 @@ cdef extern from "DASolvers.H" namespace "Foam":
         void getCellCentroids(double *)
         void getGlobalIndexLists(List[int]&, List[int]&, List[int]&, List[int]&)
         int getNLocalFaces()
-        map[string, double] getPatchStateAveragesMap(const string&)
+        map[string, vector[double]] getPatchStateAveragesMap(const string&, bool)
     
 # create python wrappers that call cpp functions
 cdef class pyDASolvers:
@@ -541,11 +541,21 @@ cdef class pyDASolvers:
     def getNLocalFaces(self):
         return self._thisptr.getNLocalFaces()
 
-    def getPatchStateAverages(self, patchName):
+    def getPatchStateAverages(self, patchName, bint returnVector):
         cdef string cpp_patch = patchName.encode("utf-8")
-        cdef map[string, double] cpp_map
+        cdef map[string, vector[double]] cpp_map
+        cdef vector[double] vec
+        cdef dict result = {}
+        cdef int i
 
-        cpp_map = self._thisptr.getPatchStateAveragesMap(cpp_patch)
+        cpp_map = self._thisptr.getPatchStateAveragesMap(cpp_patch, returnVector)
 
-        return {k.decode(): v for k, v in cpp_map}
+        for k, vec in cpp_map:
+            if vec.size() == 1:
+                result[k.decode()] = vec[0]
+            else:
+                result[k.decode()] = [vec[i] for i in range(vec.size())]
+
+        return result
+
 

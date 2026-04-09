@@ -9,6 +9,7 @@
 
 // ** For getPatchAverage
 #include <map>
+#include <vector>
 #include <string>
 // ** 
 
@@ -3987,7 +3988,7 @@ void DASolver::writeAdjointFields(
     {
         if (dropAdjointPrefix)
         {
-            return function + "_" + stateName;
+            return function + stateName;
         }
         else
         {
@@ -4952,7 +4953,9 @@ void DASolver::getGlobalIndexLists(
 
 void DASolver::getPatchStateAverages(
     const word patchName,
-    HashTable<scalar>& patchAverages
+    HashTable<scalar>& scalarAverages,
+    HashTable<vector>& vectorAverages,
+    const bool returnVector
 )
 {
     const fvMesh& mesh = meshPtr_();
@@ -4975,11 +4978,11 @@ void DASolver::getPatchStateAverages(
     reduce(areaSum, sumOp<scalar>());
 
     /* ===============================
-       volVectorStates → magnitude
-       =============================== */
+    volVectorStates
+    =============================== */
 
     forAll(stateInfo_["volVectorStates"], idxI)
-    {
+{
         const word stateName = stateInfo_["volVectorStates"][idxI];
 
         const volVectorField& field =
@@ -4998,9 +5001,15 @@ void DASolver::getPatchStateAverages(
         reduce(sumVec, sumOp<vector>());
 
         vector meanVec = sumVec / areaSum;
-        scalar magMean = mag(meanVec);
 
-        patchAverages.insert(stateName, magMean);
+        if (returnVector)
+        {
+            vectorAverages.insert(stateName, meanVec);
+        }
+        else
+        {
+            scalarAverages.insert(stateName, mag(meanVec));
+        }
     }
 
     /* ===============================
@@ -5026,7 +5035,7 @@ void DASolver::getPatchStateAverages(
 
         reduce(sumVal, sumOp<scalar>());
 
-        patchAverages.insert(stateName, sumVal / areaSum);
+        scalarAverages.insert(stateName, sumVal / areaSum);
     }
 
     /* ===============================
@@ -5052,7 +5061,7 @@ void DASolver::getPatchStateAverages(
 
         reduce(sumVal, sumOp<scalar>());
 
-        patchAverages.insert(stateName, sumVal / areaSum);
+        scalarAverages.insert(stateName, sumVal / areaSum);
     }
 
     /* ===============================
@@ -5078,25 +5087,42 @@ void DASolver::getPatchStateAverages(
 
         reduce(sumVal, sumOp<scalar>());
 
-        patchAverages.insert(stateName, sumVal / areaSum);
+        scalarAverages.insert(stateName, sumVal / areaSum);
     }
 }
 
-std::map<std::string, double> DASolver::getPatchStateAveragesMap(const word patchName)
+std::map<std::string, std::vector<double>> DASolver::getPatchStateAveragesMap(const word patchName, const bool returnVector)
 {
-    HashTable<scalar> table;
-    getPatchStateAverages(patchName, table);
+    HashTable<scalar> scalarTable;
+    HashTable<vector> vectorTable;
+    getPatchStateAverages(patchName, scalarTable, vectorTable, returnVector);
 
-    std::map<std::string, double> result;
+     std::map<std::string, std::vector<double>> result;
 
-    forAllConstIter(HashTable<scalar>, table, iter)
+    /* Scalars */
+    forAllConstIter(HashTable<scalar>, scalarTable, iter)
     {
 #ifdef CODI_NO_AD
-        result[iter.key()] = iter();
+        result[iter.key()] = {iter()};
 #else
-        result[iter.key()] = iter().getValue();
+        result[iter.key()] = {iter().getValue()};
 #endif
     }
+
+    /* Vectors */
+    forAllConstIter(HashTable<vector>, vectorTable, iter)
+    {
+        const auto& v = iter();
+
+    #ifdef CODI_NO_AD
+        result[iter.key()] = std::vector<double>{v.x(), v.y(), v.z()};
+    #else
+        result[iter.key()] = std::vector<double>{
+            v.x().getValue(),
+            v.y().getValue(),
+            v.z().getValue()};
+    #endif
+}
 
     return result;
 }

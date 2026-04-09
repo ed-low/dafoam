@@ -2191,8 +2191,8 @@ class PYDAFOAM(object):
 
         return names, np.asarray(idx, dtype=int)
     
-    def getPatchStateAverages(self, patchName):
-        return self.solver.getPatchStateAverages(patchName)
+    def getPatchStateAverages(self, patchName, returnVector=False):
+        return self.solver.getPatchStateAverages(patchName, returnVector)
 
     def arrayVal2Vec(self, array1, vec):
         """

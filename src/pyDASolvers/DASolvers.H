@@ -605,9 +605,9 @@ public:
     }
 
     /// compute and return area averaged values of temperature, pressure, velocity, and corresponding viscosity for a given patch
-    std::map<std::string, double> getPatchStateAveragesMap(const word patchName)
+    std::map<std::string, std::vector<double>> getPatchStateAveragesMap(const word patchName, const bool returnVector = false)
     {
-        return DASolverPtr_->getPatchStateAveragesMap(patchName);
+        return DASolverPtr_->getPatchStateAveragesMap(patchName, returnVector);
     }
 
 };

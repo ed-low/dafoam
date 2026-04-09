@@ -456,8 +456,8 @@ public:
     void getGlobalIndexLists(List<label>& adjStateGlobalIdx, List<label>& pointGlobalIdx, List<label>& cellGlobalIdx, List<label>& faceGlobalIdx);
 
     /// compute and return area averaged values of temperature, pressure, velocity, and corresponding viscosity for a given patch
-    void getPatchStateAverages(const word patchName, HashTable<scalar>& patchAverages);
-    std::map<std::string, double> getPatchStateAveragesMap(const word patchName);
+    void getPatchStateAverages(const word patchName, HashTable<scalar>& scalarTable, HashTable<vector>& vectorTable, const bool returnVector = false);
+    std::map<std::string, std::vector<double>> getPatchStateAveragesMap(const word patchName, const bool returnVector);
 
     /// initialize inputFieldUnsteady from the GlobalVar class
     void initInputFieldUnsteady();
