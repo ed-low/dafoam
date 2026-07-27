@@ -138,8 +138,16 @@ cdef extern from "DASolvers.H" namespace "Foam":
         void getStateWeights(double *)
         void getStateVariableMap(List[word]&, List[int]&, bool)
         void getCellCentroids(double *)
+        void getFaceCenters(double *)
+        void getFaceAreaNormals(double *)
         void getGlobalIndexLists(List[int]&, List[int]&, List[int]&, List[int]&)
         int getNLocalFaces()
+        int getNLocalPatchFaces(const string&)
+        void getPatchFaceAreaNormals(const string&, double *)
+        void getPatchFaceCenters(const string&, double *)
+        void computePhiFromU(double *)
+        void setPhiFromU()
+        void getPatchGlobalFaceIndices(const string&, int *)
         map[string, vector[double]] getPatchStateAveragesMap(const string&, bool)
     
 # create python wrappers that call cpp functions
@@ -534,6 +542,16 @@ cdef class pyDASolvers:
         cdef double* centroid_data = <double*>centroids.data
         self._thisptr.getCellCentroids(centroid_data)
 
+    def getFaceCenters(self, np.ndarray[double, ndim=1, mode="c"] centers):
+        assert len(centers) == 3 * self.getNLocalFaces(), "invalid input array size!"
+        cdef double* centers_data = &centers[0]
+        self._thisptr.getFaceCenters(centers_data)
+
+    def getFaceAreaNormals(self, np.ndarray[double, ndim=1, mode="c"] normals):
+        assert len(normals) == 3 * self.getNLocalFaces(), "invalid input array size!"
+        cdef double* normals_data = &normals[0]
+        self._thisptr.getFaceAreaNormals(normals_data)
+
     def getGlobalIndexLists(self):
         cdef List[int] adjStateGlobalIdx
         cdef List[int] pointGlobalIdx
@@ -551,6 +569,32 @@ cdef class pyDASolvers:
 
     def getNLocalFaces(self):
         return self._thisptr.getNLocalFaces()
+
+    def getNLocalPatchFaces(self, patchName):
+        cdef string cpp_patch = patchName.encode("utf-8")
+        return self._thisptr.getNLocalPatchFaces(cpp_patch)
+
+    def getPatchFaceAreaNormals(self, patchName, np.ndarray[double, ndim=1, mode="c"] normals):
+        cdef string cpp_patch = patchName.encode("utf-8")
+        cdef double* normals_data = &normals[0]
+        self._thisptr.getPatchFaceAreaNormals(cpp_patch, normals_data)
+
+    def computePhiFromU(self, np.ndarray[double, ndim=1, mode="c"] phi):
+        cdef double* phi_data = &phi[0]
+        self._thisptr.computePhiFromU(phi_data)
+
+    def setPhiFromU(self):
+        self._thisptr.setPhiFromU()
+
+    def getPatchFaceCenters(self, patchName, np.ndarray[double, ndim=1, mode="c"] centers):
+        cdef string cpp_patch = patchName.encode("utf-8")
+        cdef double* centers_data = &centers[0]
+        self._thisptr.getPatchFaceCenters(cpp_patch, centers_data)
+
+    def getPatchGlobalFaceIndices(self, patchName, np.ndarray[int, ndim=1, mode="c"] indices):
+        cdef string cpp_patch = patchName.encode("utf-8")
+        cdef int* indices_data = &indices[0]
+        self._thisptr.getPatchGlobalFaceIndices(cpp_patch, indices_data)
 
     def getPatchStateAverages(self, patchName, bint returnVector):
         cdef string cpp_patch = patchName.encode("utf-8")

@@ -1166,6 +1166,137 @@ void DASolver::getResiduals(double* residuals)
     }
 }
 
+label DASolver::getNLocalPatchFaces(const word patchName) const
+{
+    label patchI = meshPtr_->boundaryMesh().findPatchID(patchName);
+    if (patchI < 0)
+    {
+        return 0;
+    }
+    return meshPtr_->Sf().boundaryField()[patchI].size();
+}
+
+void DASolver::computePhiFromU(double* phi)
+{
+    /*
+    Description:
+        Compute the face flux phi = linearInterpolate(U) & Sf for all local faces
+        and write the values into phi[]. The ordering is: internal faces first
+        (indices 0..nLocalInternalFaces-1), then boundary faces patch-by-patch
+        (all patches, including processor patches), matching the face ordering
+        used by DAField::ofField2State for surfaceScalarStates.
+
+    Input/Output:
+        phi: caller-allocated array of size getNLocalFaces()
+    */
+    const volVectorField& U = meshPtr_->thisDb().lookupObject<volVectorField>("U");
+    tmp<surfaceScalarField> phiTmp;
+    if (meshPtr_->thisDb().foundObject<volScalarField>("rho"))
+    {
+        const volScalarField& rho = meshPtr_->thisDb().lookupObject<volScalarField>("rho");
+        phiTmp = linearInterpolate(rho * U) & meshPtr_->Sf();
+    }
+    else
+    {
+        phiTmp = linearInterpolate(U) & meshPtr_->Sf();
+    }
+    const surfaceScalarField& phiField = phiTmp();
+
+    label idx = 0;
+    for (label faceI = 0; faceI < daIndexPtr_->nLocalInternalFaces; faceI++)
+    {
+        assignValueCheckAD(phi[idx++], phiField[faceI]);
+    }
+    forAll(phiField.boundaryField(), patchI)
+    {
+        forAll(phiField.boundaryField()[patchI], faceI)
+        {
+            assignValueCheckAD(phi[idx++], phiField.boundaryField()[patchI][faceI]);
+        }
+    }
+}
+
+void DASolver::setPhiFromU()
+{
+    /*
+    Description:
+        Recompute phi = linearInterpolate(U) & Sf (or linearInterpolate(rho*U) & Sf
+        for compressible solvers) and write the result directly into the mesh phi
+        surfaceScalarField in-place.  No output array is needed; after this call the
+        phi field held by the mesh is consistent with the current U (and rho) field.
+
+        Use this after setStates() to enforce phi consistency without a second
+        full setStates() call.
+    */
+    const volVectorField& U = meshPtr_->thisDb().lookupObject<volVectorField>("U");
+    surfaceScalarField& phi = const_cast<surfaceScalarField&>(
+        meshPtr_->thisDb().lookupObject<surfaceScalarField>("phi")
+    );
+    if (meshPtr_->thisDb().foundObject<volScalarField>("rho"))
+    {
+        const volScalarField& rho = meshPtr_->thisDb().lookupObject<volScalarField>("rho");
+        phi = linearInterpolate(rho * U) & meshPtr_->Sf();
+    }
+    else
+    {
+        phi = linearInterpolate(U) & meshPtr_->Sf();
+    }
+}
+
+void DASolver::getPatchFaceAreaNormals(const word patchName, double* normals)
+{
+    label patchI = meshPtr_->boundaryMesh().findPatchID(patchName);
+    if (patchI < 0)
+    {
+        return;
+    }
+    const vectorField& Sf = meshPtr_->Sf().boundaryField()[patchI];
+    label counter = 0;
+    forAll(Sf, faceI)
+    {
+        for (label i = 0; i < 3; i++)
+        {
+            assignValueCheckAD(normals[counter], Sf[faceI][i]);
+            counter++;
+        }
+    }
+}
+
+void DASolver::getPatchFaceCenters(const word patchName, double* centers)
+{
+    label patchI = meshPtr_->boundaryMesh().findPatchID(patchName);
+    if (patchI < 0)
+    {
+        return;
+    }
+    const vectorField& Cf = meshPtr_->Cf().boundaryField()[patchI];
+    label counter = 0;
+    forAll(Cf, faceI)
+    {
+        for (label i = 0; i < 3; i++)
+        {
+            assignValueCheckAD(centers[counter], Cf[faceI][i]);
+            counter++;
+        }
+    }
+}
+
+void DASolver::getPatchGlobalFaceIndices(const word patchName, int* indices)
+{
+    label patchI = meshPtr_->boundaryMesh().findPatchID(patchName);
+    if (patchI < 0)
+    {
+        return;
+    }
+    const polyPatch& patch = meshPtr_->boundaryMesh()[patchI];
+    label startFace = patch.start();
+    label nFaces = patch.size();
+    for (label faceI = 0; faceI < nFaces; faceI++)
+    {
+        indices[faceI] = daIndexPtr_->globalFaceNumbering.toGlobal(startFace + faceI);
+    }
+}
+
 void DASolver::getOFMeshPoints(double* points)
 {
     // get the flatten mesh points coordinates
@@ -4848,6 +4979,42 @@ void DASolver::getCellCentroids(double* centroids)
         for (label i = 0; i < 3; i++)
         {
             assignValueCheckAD(centroids[counterI], C[cellI][i]);
+            counterI++;
+        }
+    }
+}
+
+void DASolver::getFaceCenters(double* centers)
+{
+    // face centers for all local faces (internal faces first, then boundary
+    // faces patch-by-patch), matching the face ordering used by
+    // daIndexPtr_->globalFaceNumbering and by computePhiFromU
+    const vectorField& Cf = meshPtr_->faceCentres();
+
+    label counterI = 0;
+    forAll(Cf, faceI)
+    {
+        for (label i = 0; i < 3; i++)
+        {
+            assignValueCheckAD(centers[counterI], Cf[faceI][i]);
+            counterI++;
+        }
+    }
+}
+
+void DASolver::getFaceAreaNormals(double* normals)
+{
+    // area-weighted face normal vectors (Sf) for all local faces; the magnitude
+    // of each vector is the face area. Ordering matches getFaceCenters:
+    // internal faces first, then boundary faces patch-by-patch
+    const vectorField& Sf = meshPtr_->faceAreas();
+
+    label counterI = 0;
+    forAll(Sf, faceI)
+    {
+        for (label i = 0; i < 3; i++)
+        {
+            assignValueCheckAD(normals[counterI], Sf[faceI][i]);
             counterI++;
         }
     }

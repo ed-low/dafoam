@@ -452,8 +452,34 @@ public:
     /// return cell centroid coordinates
     void getCellCentroids(double *centroids);
 
+    /// fill centers[3*getNLocalFaces()] with the face center coordinates for all local faces
+    /// (internal faces first, then boundary faces patch-by-patch)
+    void getFaceCenters(double *centers);
+
+    /// fill normals[3*getNLocalFaces()] with the area-weighted face normal vectors (Sf) for all
+    /// local faces; the magnitude of each vector is the face area
+    void getFaceAreaNormals(double *normals);
+
     /// return global indices
     void getGlobalIndexLists(List<label>& adjStateGlobalIdx, List<label>& pointGlobalIdx, List<label>& cellGlobalIdx, List<label>& faceGlobalIdx);
+
+    /// return the number of local faces on a given boundary patch (0 if patch not found)
+    label getNLocalPatchFaces(const word patchName) const;
+
+    /// fill normals[3*nFaces] with the Sf face-area normal vectors for the given patch
+    void getPatchFaceAreaNormals(const word patchName, double* normals);
+
+    /// fill phi[getNLocalFaces()] with linearInterpolate(U) & Sf for all faces (internal then boundary patch-by-patch)
+    void computePhiFromU(double* phi);
+
+    /// recompute phi = linearInterpolate(U) & Sf and write the result directly into the mesh phi field in-place
+    void setPhiFromU();
+
+    /// fill centers[3*nFaces] with the Cf face-centre coordinates for the given patch
+    void getPatchFaceCenters(const word patchName, double* centers);
+
+    /// fill indices[nFaces] with the DAFoam global face indices for the given patch
+    void getPatchGlobalFaceIndices(const word patchName, int* indices);
 
     /// compute and return area averaged values of temperature, pressure, velocity, and corresponding viscosity for a given patch
     void getPatchStateAverages(const word patchName, HashTable<scalar>& scalarTable, HashTable<vector>& vectorTable, const bool returnVector = false);

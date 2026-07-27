@@ -607,6 +607,18 @@ public:
         DASolverPtr_->getCellCentroids(centroids);
     }
 
+    /// return face center vector for all local faces
+    void getFaceCenters(double* centers)
+    {
+        DASolverPtr_->getFaceCenters(centers);
+    }
+
+    /// return area-weighted face normal vector for all local faces
+    void getFaceAreaNormals(double* normals)
+    {
+        DASolverPtr_->getFaceAreaNormals(normals);
+    }
+
     /// return global indices lists
     void getGlobalIndexLists(List<label>& adjStateGlobalIdx, List<label>& pointGlobalIdx, List<label>& cellGlobalIdx, List<label>& faceGlobalIdx)
     {
@@ -617,6 +629,42 @@ public:
     label getNLocalFaces() const
     {
         return DASolverPtr_->getNLocalFaces();
+    }
+
+    /// return the number of local faces on a given boundary patch (0 if patch not found)
+    label getNLocalPatchFaces(const word patchName) const
+    {
+        return DASolverPtr_->getNLocalPatchFaces(patchName);
+    }
+
+    /// fill normals[3*nFaces] with the Sf face-area normal vectors for the given patch
+    void getPatchFaceAreaNormals(const word patchName, double* normals)
+    {
+        DASolverPtr_->getPatchFaceAreaNormals(patchName, normals);
+    }
+
+    /// fill phi[getNLocalFaces()] with linearInterpolate(U) & Sf for all faces
+    void computePhiFromU(double* phi)
+    {
+        DASolverPtr_->computePhiFromU(phi);
+    }
+
+    /// recompute phi from current U field and update the mesh phi field in-place
+    void setPhiFromU()
+    {
+        DASolverPtr_->setPhiFromU();
+    }
+
+    /// fill centers[3*nFaces] with the Cf face-centre coordinates for the given patch
+    void getPatchFaceCenters(const word patchName, double* centers)
+    {
+        DASolverPtr_->getPatchFaceCenters(patchName, centers);
+    }
+
+    /// fill indices[nFaces] with the DAFoam global face indices for the given patch
+    void getPatchGlobalFaceIndices(const word patchName, int* indices)
+    {
+        DASolverPtr_->getPatchGlobalFaceIndices(patchName, indices);
     }
 
     /// compute and return area averaged values of temperature, pressure, velocity, and corresponding viscosity for a given patch

@@ -1619,6 +1619,167 @@ class PYDAFOAM(object):
 
         return xs
 
+    def getPatchFaceAreaNormals(self, groupName=None):
+        """
+        Return the face area normal vectors (Sf) for the surfaces defined by groupName.
+        Each vector points outward and has magnitude equal to the face area.
+        Normals are computed from the current mesh point coordinates using the same
+        polygon triangulation method as OpenFOAM.
+
+        Parameters
+        ----------
+        groupName : str
+            Group identifier to get only face normals corresponding to the desired group.
+            The group must be a family or a user-supplied group of families. The default
+            is None which corresponds to all wall-type surfaces.
+
+        Returns
+        -------
+        normals : numpy array of shape (nFaces, 3)
+            Face area normal vectors ordered to match the face ordering in getSurfaceConnectivity.
+        """
+
+        if groupName is None:
+            groupName = self.allWallsGroup
+
+        if groupName not in self.families:
+            raise Error(
+                "'%s' is not a family in the OpenFoam Case or has not been added"
+                " as a combination of families" % groupName
+            )
+
+        _, nFaces = self._getSurfaceSize(groupName)
+        normals = np.zeros((nFaces, 3), self.dtype)
+
+        famInd = self.families[groupName]
+        counter = 0
+        for Ind in famInd:
+            name = self.basicFamilies[Ind]
+            nPatchFaces = self.solver.getNLocalPatchFaces(name)
+            patchNormals = np.zeros(nPatchFaces * 3, self.dtype)
+            self.solver.getPatchFaceAreaNormals(name, patchNormals)
+            normals[counter : counter + nPatchFaces, :] = patchNormals.reshape(nPatchFaces, 3)
+            counter += nPatchFaces
+
+        return normals
+
+    def computePhiFromU(self):
+        """
+        Compute the face flux phi = linearInterpolate(U) & Sf using the current
+        U field in the solver, and return it as a 1-D numpy array of length
+        getNLocalFaces(). Values are ordered: internal faces first, then boundary
+        faces patch-by-patch (including processor patches), matching the face
+        ordering used by DAFoam's adjoint state vector for surfaceScalarStates.
+
+        This is useful for ROM workflows where phi is excluded from the POD basis
+        and reconstructed algebraically from U after each Newton update.
+        """
+        nFaces = self.solver.getNLocalFaces()
+        phi = np.zeros(nFaces, self.dtype)
+        self.solver.computePhiFromU(phi)
+        return phi
+
+    def setPhiFromU(self):
+        """
+        Recompute phi = linearInterpolate(U) & Sf using the current U field and
+        write the result directly into the mesh phi surfaceScalarField in-place.
+
+        Cheaper than a second setStates() call: only the phi field is touched.
+        Use this after setStates() to enforce phi consistency without the overhead
+        of unpacking and re-setting the full state vector.
+        """
+        self.solver.setPhiFromU()
+
+    def getPatchFaceCenters(self, groupName=None):
+        """
+        Return the face centre coordinates (Cf) for the surfaces defined by groupName.
+        Face centres are read from OpenFOAM's cached Cf field and correspond one-to-one
+        with the faces returned by getSurfaceConnectivity and getPatchFaceAreaNormals.
+
+        Parameters
+        ----------
+        groupName : str
+            Group identifier to get only face centres corresponding to the desired group.
+            The group must be a family or a user-supplied group of families. The default
+            is None which corresponds to all wall-type surfaces.
+
+        Returns
+        -------
+        centers : numpy array of shape (nFaces, 3)
+            Face centre coordinates ordered to match the face ordering in getSurfaceConnectivity.
+        """
+
+        if groupName is None:
+            groupName = self.allWallsGroup
+
+        if groupName not in self.families:
+            raise Error(
+                "'%s' is not a family in the OpenFoam Case or has not been added"
+                " as a combination of families" % groupName
+            )
+
+        _, nFaces = self._getSurfaceSize(groupName)
+        centers = np.zeros((nFaces, 3), self.dtype)
+
+        famInd = self.families[groupName]
+        counter = 0
+        for Ind in famInd:
+            name = self.basicFamilies[Ind]
+            nPatchFaces = self.solver.getNLocalPatchFaces(name)
+            patchCenters = np.zeros(nPatchFaces * 3, self.dtype)
+            self.solver.getPatchFaceCenters(name, patchCenters)
+            centers[counter : counter + nPatchFaces, :] = patchCenters.reshape(nPatchFaces, 3)
+            counter += nPatchFaces
+
+        return centers
+
+    def getPatchGlobalFaceIndices(self, groupName=None):
+        """
+        Return the DAFoam global face indices for the surfaces defined by groupName.
+        These are DAFoam's own global face indices (used for PETSc assembly), computed by
+        concatenating each MPI rank's local face range in rank order — NOT OpenFOAM's native
+        global indices from faceProcAddressing (which map back to the undecomposed mesh).
+        The returned indices correspond one-to-one with the faces in getPatchFaceAreaNormals
+        and getSurfaceConnectivity.
+
+        Parameters
+        ----------
+        groupName : str
+            Group identifier to get only face indices corresponding to the desired group.
+            The group must be a family or a user-supplied group of families. The default
+            is None which corresponds to all wall-type surfaces.
+
+        Returns
+        -------
+        indices : numpy array of shape (nFaces,) with dtype int
+            DAFoam global face indices ordered to match the face ordering in
+            getSurfaceConnectivity and getPatchFaceAreaNormals.
+        """
+
+        if groupName is None:
+            groupName = self.allWallsGroup
+
+        if groupName not in self.families:
+            raise Error(
+                "'%s' is not a family in the OpenFoam Case or has not been added"
+                " as a combination of families" % groupName
+            )
+
+        _, nFaces = self._getSurfaceSize(groupName)
+        indices = np.zeros(nFaces, dtype="intc")
+
+        famInd = self.families[groupName]
+        counter = 0
+        for Ind in famInd:
+            name = self.basicFamilies[Ind]
+            nPatchFaces = self.solver.getNLocalPatchFaces(name)
+            patchIndices = np.zeros(nPatchFaces, dtype="intc")
+            self.solver.getPatchGlobalFaceIndices(name, patchIndices)
+            indices[counter : counter + nPatchFaces] = patchIndices
+            counter += nPatchFaces
+
+        return indices
+
     def _getSurfaceSize(self, groupName):
         """
         Internal routine to return the size of a particular surface. This
@@ -2170,6 +2331,44 @@ class PYDAFOAM(object):
             cell_centroids = cell_centroids_flat
 
         return cell_centroids
+
+    def getFaceCenters(self, as_matrix=False):
+        """
+        Return the face center coordinates for all faces owned by this processor.
+        The ordering is internal faces first, then boundary faces patch-by-patch,
+        matching the face indexing used by getGlobalIndicesForLocalArrays and
+        computePhiFromU.
+        """
+        nLocalFaces       = self.solver.getNLocalFaces()
+        face_centers_flat = np.zeros(3 * nLocalFaces, self.dtype)
+
+        self.solver.getFaceCenters(face_centers_flat)
+
+        if as_matrix:
+            face_centers = face_centers_flat.reshape((-1, 3))
+        else:
+            face_centers = face_centers_flat
+
+        return face_centers
+
+    def getFaceAreaNormals(self, as_matrix=False):
+        """
+        Return the area-weighted face normal vectors (Sf) for all faces owned by this
+        processor. The magnitude of each vector is the face area. Internal face normals
+        point from the owner cell to the neighbour cell; boundary face normals point out
+        of the domain. The ordering matches getFaceCenters.
+        """
+        nLocalFaces       = self.solver.getNLocalFaces()
+        face_normals_flat = np.zeros(3 * nLocalFaces, self.dtype)
+
+        self.solver.getFaceAreaNormals(face_normals_flat)
+
+        if as_matrix:
+            face_normals = face_normals_flat.reshape((-1, 3))
+        else:
+            face_normals = face_normals_flat
+
+        return face_normals
     
     def getGlobalIndicesForLocalArrays(self):
         """
